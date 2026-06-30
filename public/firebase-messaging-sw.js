@@ -1,74 +1,56 @@
 /* eslint-disable no-undef */
-// Dynamic Firebase Messaging Service Worker
+// Static Firebase Messaging Service Worker (Official Firebase Architecture)
 
-// 1. Parse configuration parameters from URL
-const params = new URL(self.location).searchParams;
-const firebaseConfig = {
-  apiKey: params.get('apiKey'),
-  authDomain: params.get('authDomain'),
-  projectId: params.get('projectId'),
-  storageBucket: params.get('storageBucket'),
-  messagingSenderId: params.get('messagingSenderId'),
-  appId: params.get('appId'),
-};
+importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-if (firebaseConfig.apiKey && firebaseConfig.messagingSenderId) {
-  try {
-    // Import Firebase Compat scripts for FCM compatibility
-    importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
-    importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
-
-    firebase.initializeApp(firebaseConfig);
-    // Initialize messaging so that getToken() can successfully hand-shake with this worker
-    const messaging = firebase.messaging();
-    console.log('[SW] Firebase Messaging Compat SDK initialized successfully.');
-  } catch (err) {
-    console.error('[SW] Failed to initialize Firebase Compat SDK inside Service Worker:', err);
-  }
-}
-
-// 2. Custom push listener for custom banners and inline reply action buttons
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  try {
-    const rawData = event.data.json();
-    console.log('[SW] Push event payload received:', rawData);
-
-    const data = rawData.data || rawData;
-
-    const title = data.title || 'New Message';
-    const body = data.body || '';
-    const icon = data.icon || '/icon-192.png';
-    const conversationId = data.conversationId;
-    const senderId = data.senderId;
-    const recipientId = data.recipientId;
-
-    const options = {
-      body,
-      icon,
-      badge: '/badge.png',
-      tag: conversationId || 'herald-notification',
-      renotify: true,
-      data: {
-        conversationId,
-        senderId,
-        recipientId
-      },
-      actions: [
-        { action: 'reply', title: 'Reply', type: 'text', placeholder: 'Type a reply...' },
-        { action: 'open_chat', title: 'Open Chat' }
-      ]
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(title, options)
-    );
-  } catch (err) {
-    console.error('[SW] Error displaying push notification:', err);
-  }
+firebase.initializeApp({
+  apiKey: "AIzaSyB859jwTl_j-V6Qnkgxev3h-urIvzf3JNo",
+  authDomain: "herald-490fb.firebaseapp.com",
+  projectId: "herald-490fb",
+  storageBucket: "herald-490fb.firebasestorage.app",
+  messagingSenderId: "820023329237",
+  appId: "1:820023329237:web:f6e710857c15b5c8c27d5c"
 });
 
+const messaging = firebase.messaging();
+console.log('[SW] Firebase Messaging Compat SDK initialized successfully.');
+
+// 1. Official Firebase background message handler (No custom 'push' listener to prevent overrides)
+messaging.onBackgroundMessage((payload) => {
+  console.log('[SW] Background message received:', payload);
+  
+  const data = payload.data;
+  if (!data) return;
+
+  const title = data.title || 'New Message';
+  const body = data.body || '';
+  const icon = data.icon || '/icon-192.png';
+  const conversationId = data.conversationId;
+  const senderId = data.senderId;
+  const recipientId = data.recipientId;
+
+  const options = {
+    body,
+    icon,
+    badge: '/badge.png',
+    tag: conversationId || 'herald-notification',
+    renotify: true,
+    data: {
+      conversationId,
+      senderId,
+      recipientId
+    },
+    actions: [
+      { action: 'reply', title: 'Reply', type: 'text', placeholder: 'Type a reply...' },
+      { action: 'open_chat', title: 'Open Chat' }
+    ]
+  };
+
+  self.registration.showNotification(title, options);
+});
+
+// 2. Notification click listener for action buttons and navigation focus
 self.addEventListener('notificationclick', (event) => {
   const notification = event.notification;
   const action = event.action;
@@ -85,7 +67,7 @@ self.addEventListener('notificationclick', (event) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               conversationId,
-              senderId: recipientId, // Original recipient of message is now sender of the reply
+              senderId: recipientId,
               receiverId: senderId,
               text: replyText
             })
@@ -102,7 +84,6 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Otherwise, default notification click or 'open_chat' action
   notification.close();
 
   const conversationId = notification.data ? notification.data.conversationId : null;
