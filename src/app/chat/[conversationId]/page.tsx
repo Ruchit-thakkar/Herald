@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
@@ -127,25 +127,44 @@ export default function ChatDetailPage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
 
+    let rAFId: number | null = null;
+    let lastHeight = 0;
+    let lastOffset = 0;
+
     const handler = () => {
-      const viewport = window.visualViewport;
-      if (!viewport) return;
+      if (rAFId) cancelAnimationFrame(rAFId);
 
-      const wrapper = document.getElementById('chat-right-panel-wrapper');
-      if (wrapper) {
-        wrapper.style.height = `${viewport.height}px`;
-        wrapper.style.transform = `translateY(${viewport.offsetTop}px)`;
-      }
+      rAFId = requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        if (!viewport) return;
 
-      // Reset document scroll to prevent header from scrolling off-screen on iOS Safari
-      window.scrollTo(0, 0);
+        const currentHeight = viewport.height;
+        const currentOffset = viewport.offsetTop;
 
-      // Keep scrolled to bottom if user was already at/near the bottom (wait for layout finish)
-      setTimeout(() => {
-        if (isNearBottom()) {
-          scrollToBottom('auto');
+        // Skip writing to DOM if dimensions haven't changed meaningfully
+        if (Math.abs(currentHeight - lastHeight) < 0.5 && Math.abs(currentOffset - lastOffset) < 0.5) {
+          return;
         }
-      }, 50);
+
+        const wrapper = document.getElementById('chat-right-panel-wrapper');
+        if (wrapper) {
+          wrapper.style.height = `${currentHeight}px`;
+          wrapper.style.transform = `translateY(${currentOffset}px)`;
+        }
+
+        lastHeight = currentHeight;
+        lastOffset = currentOffset;
+
+        // Reset document scroll to prevent Safari header shifting
+        window.scrollTo(0, 0);
+
+        // Keep scrolled to bottom if near bottom
+        if (isNearBottom()) {
+          requestAnimationFrame(() => {
+            scrollToBottom('auto');
+          });
+        }
+      });
     };
 
     // Global scroll listener block to prevent document scrolling on mobile focus
@@ -163,11 +182,12 @@ export default function ChatDetailPage() {
     handler();
 
     return () => {
+      if (rAFId) cancelAnimationFrame(rAFId);
       window.visualViewport?.removeEventListener('resize', handler);
       window.visualViewport?.removeEventListener('scroll', handler);
       window.removeEventListener('scroll', handleScrollEvent);
     };
-  }, [messages]);
+  }, []);
 
   // Fetch Conversation metadata and Recipient details
   useEffect(() => {
@@ -674,8 +694,8 @@ export default function ChatDetailPage() {
     return `${minutes}m left`;
   };
 
-  // Helper to render messages with date separators and grouping
-  const renderMessages = () => {
+  // Memoized messages rendering to prevent expensive re-builds on input/keyboard updates
+  const renderedMessages = useMemo(() => {
     let lastDateStr = '';
     const combinedMessages = [...messages, ...activeUploads].sort((a, b) => a.timestamp - b.timestamp);
 
@@ -951,7 +971,7 @@ export default function ChatDetailPage() {
         </React.Fragment>
       );
     });
-  };
+  }, [messages, activeUploads, user?.uid]);
 
   return (
     <div className="fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-screen bg-background text-text-primary overflow-hidden select-none">
@@ -962,7 +982,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div id="chat-right-panel-wrapper" className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden">
+      <div id="chat-right-panel-wrapper" className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden [will-change:height,transform]">
         <div className="flex flex-col flex-1 h-full max-h-full bg-surface border-none overflow-hidden shadow-none">
 
           {/* Error Alert Banner */}
@@ -1063,7 +1083,7 @@ export default function ChatDetailPage() {
                 </p>
               </div>
             ) : (
-              renderMessages()
+              renderedMessages
             )}
             <div ref={messagesEndRef} />
           </div>
