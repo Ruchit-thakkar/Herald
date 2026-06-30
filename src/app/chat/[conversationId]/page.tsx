@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
+import MediaViewer from '@/components/MediaViewer';
 import { ref, onValue, push, update, get, set } from 'firebase/database';
 import LeftPanel from '@/components/LeftPanel';
 import EmojiPicker from '@/components/EmojiPicker';
@@ -42,9 +43,11 @@ interface RecipientProfile {
 export default function ChatDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile } = useAuth();
 
   const conversationId = params?.conversationId as string;
+  const viewedMediaId = searchParams ? searchParams.get('mediaId') : null;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeUploads, setActiveUploads] = useState<Message[]>([]);
@@ -806,7 +809,7 @@ export default function ChatDetailPage() {
                             alt={msg.fileName || 'Attachment'}
                             loading="lazy"
                             className="max-h-60 w-full object-cover hover:opacity-95 transition-opacity cursor-pointer rounded-lg"
-                            onClick={() => window.open(msg.text, '_blank')}
+                            onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)}
                           />
                         </div>
                         <div className="flex items-center justify-between mt-1 px-0.5 text-[10px]">
@@ -822,9 +825,9 @@ export default function ChatDetailPage() {
                               </span>
                             )}
                             <button 
-                              onClick={() => window.open(msg.text, '_blank')} 
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
                               className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
-                              title="Open in New Tab"
+                              title="Open Preview"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </button>
@@ -864,9 +867,9 @@ export default function ChatDetailPage() {
                               </span>
                             )}
                             <button 
-                              onClick={() => window.open(msg.text, '_blank')} 
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
                               className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
-                              title="Open in New Tab"
+                              title="Open Preview"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </button>
@@ -911,7 +914,7 @@ export default function ChatDetailPage() {
                           )}
                           <div className="flex items-center space-x-3 ml-auto">
                             <button 
-                              onClick={() => window.open(msg.text, '_blank')} 
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
                               className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
                             >
                               <ExternalLink className="h-3 w-3" />
@@ -1173,6 +1176,19 @@ export default function ChatDetailPage() {
           </div>
         </div>
       </div>
+      {viewedMediaId && (
+        <MediaViewer
+          mediaId={viewedMediaId}
+          messages={messages}
+          onClose={() => {
+            router.back();
+          }}
+          onNavigate={(nextId) => {
+            const cleanPath = window.location.pathname;
+            router.replace(`${cleanPath}?mediaId=${nextId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
