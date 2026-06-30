@@ -12,9 +12,16 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Herald",
   description: "Secure Authentication MVP",
+  manifest: "/manifest.json",
   icons: {
     icon: "https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464",
-  }
+    apple: "https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Herald",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({
@@ -40,6 +47,24 @@ export default function RootLayout({
                   }
                 } catch (e) {}
               })();
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    function(registration) {
+                      console.log('ServiceWorker registration successful');
+                    },
+                    function(err) {
+                      console.log('ServiceWorker registration failed: ', err);
+                    }
+                  );
+                });
+              }
             `,
           }}
         />
