@@ -5,8 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { ref, onValue, get } from 'firebase/database';
-import { 
-  ShieldCheck, Search, Plus, User as UserIcon, Settings as SettingsIcon, LogOut, 
+import {
+  ShieldCheck, Search, Plus, User as UserIcon, Settings as SettingsIcon, LogOut,
   ChevronRight, Circle, RefreshCw, Sun, Moon
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
@@ -33,13 +33,13 @@ export default function LeftPanel() {
   const params = useParams();
   const { user, profile, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  
+
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const menuRef = useRef<HTMLDivElement>(null);
   const activeConversationId = params?.conversationId as string;
 
@@ -80,7 +80,7 @@ export default function LeftPanel() {
       const resolvedList: ConversationItem[] = rawItems.map((item) => {
         // Find recipient UID
         const recipientUid = Object.keys(item.participants).find(uid => uid !== user.uid) || '';
-        
+
         return {
           conversationId: item.conversationId,
           lastMessage: typeof item.lastMessage === 'object' ? item.lastMessage?.text || '' : item.lastMessage || '',
@@ -109,8 +109,8 @@ export default function LeftPanel() {
   }, [user]);
 
   // Nested listener for real-time recipient status updates (presence and profile updates)
-  const [recipientUpdates, setRecipientUpdates] = useState<{ [uid: string]: { status?: 'online'|'offline'; photoURL?: string|null; displayName?: string; username?: string } }>({});
-  
+  const [recipientUpdates, setRecipientUpdates] = useState<{ [uid: string]: { status?: 'online' | 'offline'; photoURL?: string | null; displayName?: string; username?: string } }>({});
+
   useEffect(() => {
     if (conversations.length === 0) return;
 
@@ -163,19 +163,19 @@ export default function LeftPanel() {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     const now = new Date();
-    
+
     // Check if today
     if (date.toDateString() === now.toDateString()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    
+
     // Check if yesterday
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     }
-    
+
     // Default date format
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
@@ -256,7 +256,7 @@ export default function LeftPanel() {
 
         <div className="flex items-center space-x-3">
           {/* Theme Toggle Button */}
-          <button 
+          <button
             onClick={toggleTheme}
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:border-text-secondary cursor-pointer hover-scale"
             title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -268,66 +268,66 @@ export default function LeftPanel() {
             )}
           </button>
 
-        {/* User Profile Menu Dropdown */}
-        <div 
-          ref={menuRef}
-          className="relative z-20"
-          onMouseEnter={handleAvatarMouseEnter}
-          onMouseLeave={handleAvatarMouseLeave}
-        >
-          <button 
-            onClick={handleAvatarClick}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border-primary hover:border-primary overflow-hidden cursor-pointer hover-scale"
+          {/* User Profile Menu Dropdown */}
+          <div
+            ref={menuRef}
+            className="relative z-20"
+            onMouseEnter={handleAvatarMouseEnter}
+            onMouseLeave={handleAvatarMouseLeave}
           >
-            {profile?.photoURL ? (
-              <img 
-                src={profile.photoURL} 
-                alt={profile.displayName || 'Me'} 
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-xs font-bold text-slate-300">
-                {profile ? getInitials(profile.displayName) : 'ME'}
-              </span>
-            )}
-          </button>
+            <button
+              onClick={handleAvatarClick}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border-primary hover:border-primary overflow-hidden cursor-pointer hover-scale"
+            >
+              {profile?.photoURL ? (
+                <img
+                  src={profile.photoURL}
+                  alt={profile.displayName || 'Me'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-bold text-slate-300">
+                  {profile ? getInitials(profile.displayName) : 'ME'}
+                </span>
+              )}
+            </button>
 
-          {/* Hover/Click Dropdown Menu */}
-          {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-border-primary/60 bg-card-bg/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
-              <button 
-                onClick={() => { router.push('/profile'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
-              >
-                <UserIcon className="h-4.5 w-4.5 text-text-secondary" />
-                <span>Profile</span>
-              </button>
-              <button 
-                onClick={() => { router.push('/settings'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
-              >
-                <SettingsIcon className="h-4.5 w-4.5 text-text-secondary" />
-                <span>Settings</span>
-              </button>
-              <div className="my-1 border-t border-border-primary/60"></div>
-              <button 
-                onClick={() => { logout(); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-error hover:bg-error/10 hover:text-error transition-all duration-200 text-left cursor-pointer hover:pl-4"
-              >
-                <LogOut className="h-4.5 w-4.5 text-error" />
-                <span>Logout</span>
-              </button>
-            </div>
-          )}
+            {/* Hover/Click Dropdown Menu */}
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-border-primary/60 bg-card-bg/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+                <button
+                  onClick={() => { router.push('/profile'); setIsMenuOpen(false); }}
+                  className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
+                >
+                  <UserIcon className="h-4.5 w-4.5 text-text-secondary" />
+                  <span>Profile</span>
+                </button>
+                <button
+                  onClick={() => { router.push('/settings'); setIsMenuOpen(false); }}
+                  className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
+                >
+                  <SettingsIcon className="h-4.5 w-4.5 text-text-secondary" />
+                  <span>Settings</span>
+                </button>
+                <div className="my-1 border-t border-border-primary/60"></div>
+                <button
+                  onClick={() => { logout(); setIsMenuOpen(false); }}
+                  className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-error hover:bg-error/10 hover:text-error transition-all duration-200 text-left cursor-pointer hover:pl-4"
+                >
+                  <LogOut className="h-4.5 w-4.5 text-error" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Search Bar */}
       <div className="px-4 py-3">
         <div className="relative">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary" />
-          <input 
+          <input
             type="text"
             placeholder="Search conversations..."
             value={searchQuery}
@@ -355,7 +355,7 @@ export default function LeftPanel() {
           filteredConversations.map((conv) => {
             const isActive = activeConversationId === conv.conversationId;
             const initials = getInitials(conv.recipient.displayName);
-            
+
             return (
               <button
                 key={conv.conversationId}
@@ -408,7 +408,7 @@ export default function LeftPanel() {
       </div>
 
       {/* Floating Action Button '+' */}
-      <button 
+      <button
         onClick={() => router.push('/new-chat')}
         className="absolute bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 cursor-pointer hover-scale"
         title="Start New Chat"

@@ -199,9 +199,9 @@ export default function NewChatPage() {
         </div>
 
         {/* Card Panel */}
-        <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-[20px] border border-border-primary bg-card-bg p-6 md:p-8 shadow-sm">
           {errorMessage && (
-            <div className="mb-6 rounded-xl bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
+            <div className="mb-6 rounded-xl bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2 font-medium">
               <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
@@ -230,7 +230,7 @@ export default function NewChatPage() {
                 <button
                   type="submit"
                   disabled={searching || !searchQuery.trim()}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer hover-scale"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer hover-scale"
                 >
                   {searching ? (
                     <RefreshCw className="h-5 w-5 animate-spin" />
@@ -254,7 +254,7 @@ export default function NewChatPage() {
                 <span className="text-xs text-text-secondary font-medium">Initializing secure chat...</span>
               </div>
             ) : results.length > 0 ? (
-              <div className="divide-y divide-border-primary/60 overflow-hidden rounded-2xl border border-border-primary bg-background shadow-inner">
+              <div className="divide-y divide-border-primary/65 overflow-hidden rounded-xl border border-border-primary bg-background">
                 {results.map((target) => (
                   <button
                     key={target.uid}
@@ -262,11 +262,11 @@ export default function NewChatPage() {
                     className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-surface/50 text-left transition-all duration-200 cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3 min-w-0">
-                      <div className="h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary/60 overflow-hidden flex items-center justify-center">
                         {target.photoURL ? (
                           <img src={target.photoURL} alt={target.displayName} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="text-sm font-semibold text-text-secondary">
+                          <span className="text-xs font-semibold text-text-secondary">
                             {getInitials(target.displayName)}
                           </span>
                         )}
@@ -290,7 +290,7 @@ export default function NewChatPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-border-primary rounded-xl">
                 <UserIcon className="h-8 w-8 text-text-secondary/45 mb-2" />
-                <p className="text-xs text-text-secondary max-w-xs">
+                <p className="text-xs text-text-secondary max-w-xs font-medium">
                   {searchQuery ? 'No search hits.' : 'Type a username above to search globally across Herald.'}
                 </p>
               </div>

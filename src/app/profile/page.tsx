@@ -135,7 +135,7 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between pb-2">
           <button 
             onClick={() => router.push('/home')}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer hover-scale"
             title="Back to Home"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -147,16 +147,16 @@ export default function ProfilePage() {
         </div>
 
         {/* Card Body */}
-        <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-[20px] border border-border-primary bg-card-bg p-6 md:p-8 shadow-sm">
           {error && (
-            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
+            <div className="mb-6 rounded-xl bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2 font-medium">
               <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 rounded-lg bg-success/10 border border-success/20 p-3.5 text-sm text-success flex items-start space-x-2">
+            <div className="mb-6 rounded-xl bg-success/10 border border-success/20 p-3.5 text-sm text-success flex items-start space-x-2 font-medium">
               <Check className="h-5 w-5 shrink-0 mt-0.5" />
               <span>Profile updated successfully!</span>
             </div>
@@ -167,7 +167,7 @@ export default function ProfilePage() {
             {/* Avatar Selection Area */}
             <div className="flex flex-col items-center pb-4">
               <div className="relative group">
-                <div className="h-24 w-24 rounded-full bg-surface border-2 border-border-primary overflow-hidden flex items-center justify-center shadow-xl">
+                <div className="h-24 w-24 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center shadow-sm">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar Preview" className="h-full w-full object-cover" />
                   ) : (
@@ -189,7 +189,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="absolute bottom-0 right-0 p-2 rounded-full bg-primary hover:bg-primary-hover border border-background text-white shadow-lg cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 disabled:opacity-50"
+                  className="absolute bottom-0 right-0 p-2.5 rounded-full bg-primary hover:bg-primary-hover border border-background text-white shadow-sm cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 disabled:opacity-50"
                   title="Upload Custom Image"
                 >
                   {uploading ? (
@@ -213,9 +213,9 @@ export default function ProfilePage() {
                         key={presetUrl}
                         type="button"
                         onClick={() => handlePresetSelect(presetUrl)}
-                        className={`h-11 w-11 rounded-full border-2 overflow-hidden transition-all bg-surface cursor-pointer ${
+                        className={`h-11 w-11 rounded-full border-2 overflow-hidden transition-all bg-surface cursor-pointer hover-scale ${
                           isSelected 
-                            ? 'border-primary scale-110 shadow-lg' 
+                            ? 'border-primary scale-105 shadow-md' 
                             : 'border-border-primary hover:border-text-secondary'
                         }`}
                       >
@@ -237,7 +237,7 @@ export default function ProfilePage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter Display Name"
-                className="block w-full rounded-lg border border-border-primary bg-background py-3.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+                className="block w-full rounded-xl border border-border-primary bg-background py-3.5 px-5 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                 required
               />
             </div>
@@ -248,7 +248,7 @@ export default function ProfilePage() {
                 <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest">
                   Username
                 </label>
-                <span className="text-[10px] text-text-secondary/60 flex items-center space-x-1 font-medium font-sans">
+                <span className="text-[10px] text-text-secondary/60 flex items-center space-x-1 font-semibold font-sans">
                   <Lock className="h-3 w-3" />
                   <span>Permanent UID</span>
                 </span>
@@ -261,7 +261,7 @@ export default function ProfilePage() {
                   type="text"
                   value={profile?.username || ''}
                   disabled
-                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-8 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-xl border border-border-primary/40 bg-surface/30 py-3.5 pl-8 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
@@ -279,7 +279,7 @@ export default function ProfilePage() {
                   type="email"
                   value={profile?.email || user?.email || ''}
                   disabled
-                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-xl border border-border-primary/40 bg-surface/30 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function ProfilePage() {
                   type="text"
                   value={formatJoinedDate(profile?.createdAt)}
                   disabled
-                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-xl border border-border-primary/40 bg-surface/30 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
@@ -306,7 +306,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex w-full justify-center rounded-lg bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md cursor-pointer"
+              className="flex w-full justify-center rounded-xl bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm cursor-pointer hover-scale"
             >
               {saving ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />

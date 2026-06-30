@@ -44,7 +44,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between pb-2">
           <button 
             onClick={() => router.push('/home')}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer hover-scale"
             title="Back to Home"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -56,7 +56,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Settings Card */}
-        <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md transition-colors duration-200 relative">
+        <div className="rounded-[20px] border border-border-primary bg-card-bg p-6 md:p-8 shadow-sm transition-colors duration-200 relative">
           
           {/* Quick status toast */}
           {savedMessage && (
@@ -73,21 +73,21 @@ export default function SettingsPage() {
               <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-widest mb-4">
                 Appearance
               </h4>
-              <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-background/40">
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
                 <div className="flex items-center space-x-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-primary">
                     {theme === 'dark' ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5" />}
                   </div>
                   <div>
                     <p className="text-sm font-bold text-text-primary">App Theme</p>
-                    <p className="text-xs text-text-secondary mt-0.5">Toggle light or dark layout appearance</p>
+                    <p className="text-xs text-text-secondary mt-0.5 font-medium">Toggle light or dark layout appearance</p>
                   </div>
                 </div>
                 
                 {/* Theme Switcher Button */}
                 <button
                   onClick={handleThemeToggle}
-                  className="rounded-lg border border-border-primary bg-background hover:bg-surface px-4 py-2 text-xs font-semibold text-text-primary transition-all cursor-pointer select-none active:scale-95"
+                  className="rounded-lg border border-border-primary bg-background hover:bg-surface px-4 py-2 text-xs font-semibold text-text-primary transition-all cursor-pointer select-none active:scale-95 hover-scale"
                 >
                   {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                 </button>
@@ -101,14 +101,14 @@ export default function SettingsPage() {
               </h4>
               <div className="space-y-3">
                 {/* Desktop Switch */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-background/40">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
                   <div className="flex items-center space-x-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
                       <Bell className="h-4.5 w-4.5" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-text-primary">Desktop Alerts</p>
-                      <p className="text-xs text-text-secondary mt-0.5">Receive alert notifications for new messages</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Receive alert notifications for new messages</p>
                     </div>
                   </div>
                   <button
@@ -127,14 +127,14 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Sound Switch */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-background/40">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
                   <div className="flex items-center space-x-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
                       <Volume2 className="h-4.5 w-4.5" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-text-primary">Sound Effects</p>
-                      <p className="text-xs text-text-secondary mt-0.5">Play dynamic audio cue on incoming message</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Play dynamic audio cue on incoming message</p>
                     </div>
                   </div>
                   <button
@@ -161,14 +161,14 @@ export default function SettingsPage() {
               </h4>
               <div className="space-y-3">
                 {/* Activity Status Switch */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-background/40">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
                   <div className="flex items-center space-x-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
                       <Eye className="h-4.5 w-4.5" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-text-primary">Activity Status</p>
-                      <p className="text-xs text-text-secondary mt-0.5">Let others see if you are currently online</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Let others see if you are currently online</p>
                     </div>
                   </div>
                   <button
@@ -187,14 +187,14 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Read Receipts Switch */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-background/40">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
                   <div className="flex items-center space-x-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
                       <Shield className="h-4.5 w-4.5" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-text-primary">Read Receipts</p>
-                      <p className="text-xs text-text-secondary mt-0.5">Allow senders to see when you read their text</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Allow senders to see when you read their text</p>
                     </div>
                   </div>
                   <button
@@ -218,7 +218,7 @@ export default function SettingsPage() {
             <div className="pt-2">
               <button
                 onClick={logout}
-                className="flex w-full items-center justify-center space-x-2 rounded-xl bg-error/10 hover:bg-error/20 border border-error/20 py-3.5 text-sm font-semibold text-error hover:text-error transition-all duration-200 cursor-pointer"
+                className="flex w-full items-center justify-center space-x-2 rounded-xl bg-error/10 hover:bg-error/20 border border-error/20 py-3.5 text-sm font-semibold text-error hover:text-error transition-all duration-200 cursor-pointer hover-scale"
               >
                 <LogOut className="h-4.5 w-4.5" />
                 <span>Log Out of Herald</span>

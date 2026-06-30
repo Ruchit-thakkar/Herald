@@ -14,7 +14,7 @@ export default function HomePage() {
 
       {/* Right Panel - Empty State (Only visible on desktop/tablet) */}
       <div className="hidden md:flex flex-col flex-1 h-full items-center justify-center text-center bg-background px-6 border-l border-border-primary">
-        <div className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-surface border border-border-primary/65 shadow-md mb-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-surface border border-border-primary shadow-lg mb-4">
           <MessageSquare className="h-7 w-7 text-text-secondary" />
         </div>
         <h3 className="text-lg font-bold text-text-primary tracking-tight">Select a conversation</h3>

@@ -7,7 +7,7 @@ import { auth, db, storage } from '@/lib/firebase';
 import { ref, onValue, push, update, get, set } from 'firebase/database';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import LeftPanel from '@/components/LeftPanel';
-import { 
+import {
   ChevronLeft, Send, Smile, Paperclip, MoreVertical, ShieldAlert,
   Image as ImageIcon, File as FileIcon, X, RefreshCw
 } from 'lucide-react';
@@ -35,7 +35,7 @@ export default function ChatDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user, profile } = useAuth();
-  
+
   const conversationId = params?.conversationId as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -76,13 +76,13 @@ export default function ChatDetailPage() {
 
     // Get the conversation metadata to find participants
     const convRef = ref(db, `conversations/${conversationId}`);
-    
+
     get(convRef).then((snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setConversation(data);
         const recipientUid = Object.keys(data.participants).find(uid => uid !== user.uid) || '';
-        
+
         if (recipientUid) {
           // Listen to recipient profile and presence in real-time
           const userRef = ref(db, `users/${recipientUid}`);
@@ -140,7 +140,7 @@ export default function ChatDetailPage() {
           messageId: key,
           ...data[key]
         })) as Message[];
-        
+
         // Sort chronologically
         list.sort((a, b) => a.timestamp - b.timestamp);
         setMessages(list);
@@ -263,7 +263,7 @@ export default function ChatDetailPage() {
       await handleSendMessage(downloadURL, fileType, file.name);
     } catch (err: any) {
       console.warn('Firebase Storage upload failed, falling back to base64 encoding...', err);
-      
+
       // 2. Fallback to Base64 in Realtime Database (with a limit check of ~2MB)
       if (file.size > 2 * 1024 * 1024) {
         triggerError('File is too large. Max size is 2MB for fallback encoding.');
@@ -299,7 +299,7 @@ export default function ChatDetailPage() {
 
     if (diffMins < 1) return 'Online';
     if (diffMins < 60) return `Active ${diffMins}m ago`;
-    
+
     // Check if today
     if (date.toDateString() === now.toDateString()) {
       return `Last seen today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -313,7 +313,7 @@ export default function ChatDetailPage() {
     return messages.map((msg, index) => {
       const isMe = msg.senderId === user?.uid;
       const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      
+
       // Date separator logic
       const msgDate = new Date(msg.timestamp);
       const dateStr = msgDate.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
@@ -348,25 +348,24 @@ export default function ChatDetailPage() {
               </span>
             </div>
           )}
-          
-          <div 
+
+          <div
             className={`flex w-full transition-all duration-150 ${isGrouped ? 'mt-1' : 'mt-4'}`}
             style={{ justifyContent: isMe ? 'flex-end' : 'flex-start' }}
           >
             <div className="flex flex-col space-y-1.5 max-w-[75%]">
-              <div 
-                className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${
-                  isMe 
-                    ? 'bg-primary text-white rounded-br-sm font-normal' 
-                    : 'bg-surface text-text-primary rounded-bl-sm border border-border-primary/55'
-                }`}
+              <div
+                className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${isMe
+                  ? 'bg-primary text-white rounded-br-sm font-normal'
+                  : 'bg-surface text-text-primary rounded-bl-sm border border-border-primary/55'
+                  }`}
               >
                 {/* Render Image Message */}
                 {msg.type === 'image' && (
                   <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-border-primary/50">
-                    <img 
-                      src={msg.text} 
-                      alt="Attachment" 
+                    <img
+                      src={msg.text}
+                      alt="Attachment"
                       className="max-h-60 object-contain hover:opacity-90 transition-opacity cursor-pointer"
                       onClick={() => window.open(msg.text, '_blank')}
                     />
@@ -383,9 +382,9 @@ export default function ChatDetailPage() {
                       <p className={`truncate text-xs font-semibold leading-tight ${isMe ? 'text-white' : 'text-text-primary'}`}>
                         {msg.fileName || 'Attached File'}
                       </p>
-                      <a 
-                        href={msg.text} 
-                        target="_blank" 
+                      <a
+                        href={msg.text}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className={`text-[10px] underline font-semibold mt-1 inline-block ${isMe ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-primary-hover'}`}
                       >
@@ -416,178 +415,257 @@ export default function ChatDetailPage() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-text-primary overflow-hidden">
-      
+
       {/* Left Panel - Hidden on mobile when viewing a conversation */}
       <div className="hidden md:block md:w-[400px] shrink-0 h-full relative">
         <LeftPanel />
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div className="flex flex-col flex-1 h-full bg-background relative">
-        
-        {/* Error Alert Banner */}
-        {errorBanner && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-error/10 border border-error/30 px-5 py-3 text-xs text-error shadow-2xl backdrop-blur-md">
-            <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
-            <span className="font-semibold">{errorBanner}</span>
-            <button onClick={() => setErrorBanner('')} className="text-error hover:text-text-primary pl-2">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+      <div className="flex flex-col flex-1 h-full bg-background relative p-0 md:p-0">
+        <div className="flex flex-col flex-1 h-full bg-surface rounded-[20px] md:rounded-none border border-border-primary/50 md:border-none overflow-hidden shadow-sm md:shadow-none">
 
-        {/* Chat Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border-primary px-4 md:px-6 bg-surface">
-          <div className="flex items-center space-x-3 min-w-0">
-            {/* Back Button (Mobile only) */}
-            <button 
-              onClick={() => router.push('/home')}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-
-            {/* Recipient Info */}
-            {recipient && (
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="relative h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
-                  {recipient.photoURL ? (
-                    <img src={recipient.photoURL} alt={recipient.displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-semibold text-text-secondary">
-                      {recipient.displayName
-                        ? recipient.displayName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                        : '?'}
-                    </span>
-                  )}
-                  {recipient.status === 'online' && (
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-surface bg-success"></span>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-sm font-bold truncate text-text-primary leading-tight">
-                    {recipient.displayName}
-                  </h4>
-                  <p className="text-[10px] text-text-secondary truncate mt-0.5">
-                    {recipient.status === 'online' ? 'Online' : formatLastSeen(recipient.lastSeen)}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-surface text-text-secondary hover:text-text-primary cursor-pointer hover-scale">
-              <MoreVertical className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Message History */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-          {loadingMessages ? (
-            <div className="flex flex-col items-center justify-center h-full space-y-3">
-              <RefreshCw className="h-7 w-7 animate-spin text-primary/50" />
-              <span className="text-xs text-text-secondary font-semibold tracking-wider uppercase animate-pulse">Syncing Conversation</span>
+          {/* Error Alert Banner */}
+          {errorBanner && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-error/10 border border-error/30 px-5 py-3 text-xs text-error shadow-2xl backdrop-blur-md">
+              <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
+              <span className="font-semibold">{errorBanner}</span>
+              <button onClick={() => setErrorBanner('')} className="text-error hover:text-text-primary pl-2">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
-                <Send className="h-5 w-5 rotate-45" />
-              </div>
-              <h4 className="text-sm font-bold text-text-secondary">Say Hello!</h4>
-              <p className="text-xs text-text-secondary/70 max-w-xs mt-1">
-                This is the beginning of your conversation. Send a message to start chatting.
-              </p>
-            </div>
-          ) : (
-            renderMessages()
           )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* Attachment Upload State Overlay */}
-        {uploading && (
-          <div className="absolute inset-0 bg-background/50 backdrop-blur-md flex items-center justify-center z-10 animate-fade-in">
-            <div className="flex flex-col items-center space-y-3 bg-card-bg/95 border border-border-primary p-6 rounded-2xl shadow-2xl backdrop-blur-md">
-              <RefreshCw className="h-7 w-7 animate-spin text-primary" />
-              <span className="text-xs font-bold text-text-primary tracking-widest uppercase">Uploading Attachment</span>
-            </div>
-          </div>
-        )}
+          {/* Chat Header */}
+          <div className="flex h-16 items-center justify-between border-b border-border-primary bg-surface px-3 sm:px-4 md:px-6 lg:px-7">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
 
-        {/* Input Bar Area */}
-        <div className="border-t border-border-primary px-4 py-3 bg-surface">
-          <form onSubmit={handleTextSubmit} className="flex items-center space-x-3 relative">
-            
-            {/* Attachment Button */}
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleAttachmentChange}
-              className="hidden"
-            />
-            <button 
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
-              title="Attach Image/File"
-            >
-              <Paperclip className="h-4.5 w-4.5" />
-            </button>
-
-            {/* Emoji Trigger */}
-            <div ref={emojiRef} className="relative">
-              <button 
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border cursor-pointer hover-scale ${
-                  showEmojiPicker 
-                    ? 'bg-primary/10 border-primary text-primary' 
-                    : 'bg-background border-border-primary text-text-secondary hover:text-text-primary'
-                }`}
-                title="Add Emoji"
+              {/* Back Button (Mobile only) */}
+              <button
+                onClick={() => router.push("/home")}
+                className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:bg-surface transition-all duration-200"
               >
-                <Smile className="h-4.5 w-4.5" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
 
-              {/* Popover Emoji Panel */}
-              {showEmojiPicker && (
-                <div className="absolute bottom-12 left-0 w-64 rounded-[20px] border border-border-primary bg-card-bg p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                  {emojiList.map((emo) => (
-                    <button
-                      key={emo}
-                      type="button"
-                      onClick={() => handleEmojiClick(emo)}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl text-lg hover:bg-surface transition-all cursor-pointer hover-scale"
-                    >
-                      {emo}
-                    </button>
-                  ))}
+              {/* Recipient */}
+              {recipient && (
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+
+                  {/* Avatar */}
+                  <div className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-full overflow-hidden border border-border-primary bg-surface flex items-center justify-center">
+                    {recipient.photoURL ? (
+                      <img
+                        src={recipient.photoURL}
+                        alt={recipient.displayName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold text-text-secondary">
+                        {recipient.displayName
+                          ? recipient.displayName
+                            .split(" ")
+                            .filter(Boolean)
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)
+                          : "?"}
+                      </span>
+                    )}
+
+                    {recipient.status === "online" && (
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface bg-success" />
+                    )}
+                  </div>
+
+                  {/* Name + Status */}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-semibold text-text-primary">
+                      {recipient.displayName}
+                    </h4>
+
+                    <p className="truncate text-xs text-text-secondary mt-0.5">
+                      {recipient.status === "online"
+                        ? "Online"
+                        : formatLastSeen(recipient.lastSeen)}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Text Input Field */}
-            <input 
-              type="text"
-              placeholder="Type a message..."
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              className="flex-1 rounded-full border border-border-primary bg-background py-2.5 px-5 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
-            />
-
-            {/* Send Action */}
-            <button 
-              type="submit"
-              disabled={sending || !inputText.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover-scale"
+            {/* More Button */}
+            <button
+              className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200"
             >
-              <Send className="h-4.5 w-4.5" />
+              <MoreVertical className="h-5 w-5" />
             </button>
-          </form>
-        </div>
+          </div>
 
+          {/* Message History */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6 lg:px-8 lg:py-7 space-y-4">
+            {loadingMessages ? (
+              <div className="flex flex-col items-center justify-center h-full space-y-3">
+                <RefreshCw className="h-7 w-7 animate-spin text-primary/50" />
+                <span className="text-xs text-text-secondary font-semibold tracking-wider uppercase animate-pulse">
+                  Syncing Conversation
+                </span>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
+                  <Send className="h-5 w-5 rotate-45" />
+                </div>
+                <h4 className="text-sm font-bold text-text-secondary">Say Hello!</h4>
+                <p className="text-xs text-text-secondary/70 max-w-xs mt-1">
+                  This is the beginning of your conversation. Send a message to start chatting.
+                </p>
+              </div>
+            ) : (
+              renderMessages()
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          {/* Attachment Upload State Overlay */}
+          {uploading && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-md flex items-center justify-center z-10 animate-fade-in">
+              <div className="flex flex-col items-center space-y-3 bg-card-bg/95 border border-border-primary p-6 rounded-2xl shadow-2xl backdrop-blur-md">
+                <RefreshCw className="h-7 w-7 animate-spin text-primary" />
+                <span className="text-xs font-bold text-text-primary tracking-widest uppercase">Uploading Attachment</span>
+              </div>
+            </div>
+          )}
+
+          {/* Input Bar Area */}
+          <div className="border-t border-border-primary bg-surface px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 lg:px-7 lg:py-6">
+            <form
+              onSubmit={handleTextSubmit}
+              className="flex items-center gap-2 sm:gap-3"
+            >
+
+              {/* Attachment Button */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAttachmentChange}
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:bg-surface transition-all duration-200 cursor-pointer"
+                title="Attach Image/File"
+              >
+                <Paperclip className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              </button>
+
+              {/* Emoji Button */}
+              <div ref={emojiRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all duration-200 cursor-pointer ${showEmojiPicker
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-background border-border-primary text-text-secondary hover:text-text-primary hover:bg-surface"
+                    }`}
+                  title="Add Emoji"
+                >
+                  <Smile className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                </button>
+
+                {/* Emoji Picker */}
+                {showEmojiPicker && (
+                  <div
+                    className="
+            absolute bottom-12 left-0
+            w-56 sm:w-64
+            rounded-2xl
+            border border-border-primary
+            bg-card-bg
+            p-2
+            shadow-xl
+            z-20
+            grid grid-cols-6
+            gap-1.5
+            animate-in fade-in slide-in-from-bottom-2 duration-200
+          "
+                  >
+                    {emojiList.map((emo) => (
+                      <button
+                        key={emo}
+                        type="button"
+                        onClick={() => handleEmojiClick(emo)}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl text-lg hover:bg-surface transition-all duration-150 cursor-pointer"
+                      >
+                        {emo}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Message Input */}
+              <input
+                type="text"
+                placeholder={
+                  recipient
+                    ? `Message ${recipient.displayName}...`
+                    : "Write a message..."
+                }
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                className="
+        flex-1
+        min-w-0
+        rounded-full
+        border border-border-primary
+        bg-background
+        px-4 sm:px-5
+        py-2.5
+        text-sm
+        text-text-primary
+        placeholder:text-text-secondary/50
+        outline-none
+        transition-all
+        duration-200
+        hover:border-text-secondary
+        focus:border-primary
+        focus:ring-2
+        focus:ring-primary/20
+      "
+              />
+
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={sending || !inputText.trim()}
+                className="
+        flex
+        h-9 w-9
+        sm:h-10 sm:w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
+        bg-primary
+        text-white
+        shadow-sm
+        transition-all
+        duration-200
+        hover:scale-105
+        active:scale-95
+        disabled:opacity-40
+        disabled:cursor-not-allowed
+      "
+              >
+                <Send className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              </button>
+
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

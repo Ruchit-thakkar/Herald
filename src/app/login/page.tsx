@@ -64,28 +64,28 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Brand Header */}
         <div className="flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-slate-900 border border-border-primary shadow-lg">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[20px] overflow-hidden bg-surface border border-border-primary/50 shadow-md">
             <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-text-primary text-gradient">
+          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-text-primary">
             Welcome Back
           </h2>
-          <p className="mt-2 text-center text-sm text-text-secondary">
+          <p className="mt-2 text-center text-sm text-text-secondary font-medium">
             Sign in to your Herald account
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="rounded-2xl border border-border-primary bg-card-bg p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-[20px] border border-border-primary bg-card-bg p-8 shadow-sm">
           {error && (
-            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3 text-sm text-error">
+            <div className="mb-6 rounded-xl bg-error/10 border border-error/20 p-3 text-sm text-error font-medium">
               {error}
             </div>
           )}
 
           <form onSubmit={handleEmailLogin} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              <label className="block text-sm font-semibold text-text-secondary mb-1.5">
                 Email Address
               </label>
               <div className="relative">
@@ -97,7 +97,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -105,7 +105,7 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-text-secondary">
+                <label className="block text-sm font-semibold text-text-secondary">
                   Password
                 </label>
               </div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -127,7 +127,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-xl bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md cursor-pointer hover-scale"
+              className="flex w-full justify-center rounded-xl bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm cursor-pointer hover-scale"
             >
               {loading ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />
@@ -145,7 +145,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-border-primary"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card-bg px-2 text-text-secondary font-medium">Or continue with</span>
+              <span className="bg-card-bg px-2 text-text-secondary font-semibold">Or continue with</span>
             </div>
           </div>
 
@@ -164,7 +164,7 @@ export default function LoginPage() {
             Google
           </button>
 
-          <p className="mt-8 text-center text-sm text-text-secondary">
+          <p className="mt-8 text-center text-sm text-text-secondary font-medium">
             Don't have an account?{' '}
             <Link href="/register" className="font-semibold text-primary hover:text-primary-hover transition-colors">
               Create Account

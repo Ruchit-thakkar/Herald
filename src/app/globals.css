@@ -40,27 +40,47 @@
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-card-bg: var(--card);
-  
+
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-accent: var(--accent);
-  
+
   --color-text-primary: var(--text);
   --color-text-secondary: var(--text-secondary);
-  
+
   --color-border-primary: var(--border);
-  
+
   --color-success: var(--success);
   --color-error: var(--error);
 }
 
 /* Global Transitions for color switches and interactive components */
-body, div, header, footer, nav, aside, section, main, button, input, textarea, select, a, span, p, h1, h2, h3, h4, h5, h6 {
-  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
-              border-color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
-              color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
-              box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
-              transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+body,
+div,
+header,
+footer,
+nav,
+aside,
+section,
+main,
+button,
+input,
+textarea,
+select,
+a,
+span,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -72,14 +92,16 @@ body {
 
 /* Reusable tactile click feedback */
 .hover-scale {
-  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), 
-              background-color 250ms ease-out, 
-              border-color 250ms ease-out, 
-              box-shadow 250ms ease-out;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 250ms ease-out,
+    border-color 250ms ease-out,
+    box-shadow 250ms ease-out;
 }
+
 .hover-scale:hover {
   transform: translateY(-1px) scale(1.015);
 }
+
 .hover-scale:active {
   transform: translateY(0) scale(0.985);
 }
@@ -104,10 +126,11 @@ body {
   background: rgba(100, 116, 139, 0.4);
 }
 
-/* Flat Premium solid panel styling */
+/* Glassmorphism panel styling */
 .glass {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .text-gradient {
