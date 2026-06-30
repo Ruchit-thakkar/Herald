@@ -110,8 +110,15 @@ export async function POST(request: Request) {
             console.log(`[Direct Reply] Forwarded outgoing push to ${receiverId}`);
           }
         }
-      } catch (pushErr) {
+      } catch (pushErr: any) {
         console.error('[Direct Reply] Non-blocking push send error:', pushErr);
+        if (
+          pushErr.code === 'messaging/registration-token-not-registered' ||
+          pushErr.code === 'messaging/invalid-registration-token'
+        ) {
+          console.log(`[Direct Reply] Deleting invalid/expired token for recipient ${receiverId}`);
+          await adminDb.ref(`users/${receiverId}/notificationToken`).remove();
+        }
       }
     }
 

@@ -140,8 +140,19 @@ export async function registerPushNotifications(uid: string) {
       code: error?.code,
       stack: error?.stack
     });
-    
-    if (error?.message?.includes('push service error') || error?.name === 'AbortError') {
+
+    if (error?.code === 'messaging/token-subscribe-failed') {
+      console.error(
+        '[Push Diagnostics] VAPID Key authentication failed (messaging/token-subscribe-failed). ' +
+        'The VAPID Key in .env.local (NEXT_PUBLIC_FIREBASE_VAPID_KEY) is invalid or mismatched with the active Firebase project. ' +
+        'To resolve this: \n' +
+        '1. Go to Firebase Console -> Project Settings -> Cloud Messaging.\n' +
+        '2. Scroll down to Web configuration -> Web Push certificates.\n' +
+        '3. Click "Generate Key Pair" (if not already generated).\n' +
+        '4. Copy the long public key string (typically ~87 characters starting with "B") and paste it into .env.local as NEXT_PUBLIC_FIREBASE_VAPID_KEY.\n' +
+        '5. Restart the Next.js development server.'
+      );
+    } else if (error?.message?.includes('push service error') || error?.name === 'AbortError') {
       console.error('[Push Diagnostics] AbortError detected. This is usually caused by an invalid/mismatched VAPID key (NEXT_PUBLIC_FIREBASE_VAPID_KEY) or if the browser push service cannot connect.');
     }
   }

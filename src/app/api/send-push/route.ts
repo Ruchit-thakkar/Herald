@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server';
 import { adminDb, adminMessaging } from '@/lib/firebaseAdmin';
 
 export async function POST(request: Request) {
+  let recipientId: string | undefined;
   try {
+    const body = await request.json();
+    recipientId = body.recipientId;
     const {
-      recipientId,
       conversationId,
       messageText,
       messageType,
       fileName,
       senderName,
       senderPhoto
-    } = await request.json();
+    } = body;
 
     if (!recipientId || !conversationId || !messageText || !messageType) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -80,6 +82,18 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('[Push API] Error sending push notification:', error);
-    return NextResponse.json({ error: 'Internal Server Error: ' + error.message }, { status: 500 });
+
+    // Auto-remove invalid or expired tokens
+    if (
+      error.code === 'messaging/registration-token-not-registered' ||
+      error.code === 'messaging/invalid-registration-token'
+    ) {
+      console.log(`[Push API] Deleting invalid/expired token for recipient ${recipientId}`);
+      if (adminDb && recipientId) {
+        await adminDb.ref(`users/${recipientId}/notificationToken`).remove();
+      }
+    }
+
+    return NextResponse.json({ error: 'FCM sending failed: ' + error.message, code: error.code }, { status: 500 });
   }
 }
