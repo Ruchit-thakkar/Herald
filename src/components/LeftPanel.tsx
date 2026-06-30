@@ -226,8 +226,8 @@ export default function LeftPanel() {
       {/* Top Header */}
       <div className="relative flex h-16 items-center justify-between px-5 border-b border-slate-900">
         <div className="flex items-center space-x-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400">
-            <ShieldCheck className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-sm">
+            <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
           <span className="text-lg font-bold tracking-tight text-gradient">Herald</span>
         </div>

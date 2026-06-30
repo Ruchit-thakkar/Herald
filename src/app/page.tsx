@@ -11,8 +11,8 @@ export default function RootGatewayPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#080C14] text-white">
       <div className="flex flex-col items-center space-y-4">
         {/* Brand Logo Animation */}
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-xl shadow-emerald-500/20 animate-pulse">
-          <ShieldCheck className="h-9 w-9 text-white" />
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-xl shadow-emerald-500/20 animate-pulse bg-slate-900 border border-slate-800">
+          <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
         </div>
         
         <h1 className="text-xl font-bold tracking-tight text-gradient">Herald</h1>

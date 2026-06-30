@@ -241,8 +241,8 @@ export default function SetupUsernamePage() {
         
         {/* Header */}
         <div className="flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 shadow-lg shadow-emerald-500/20">
-            <UserIcon className="h-8 w-8 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-lg shadow-emerald-500/10">
+            <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-white text-gradient">
             Set Up Profile
