@@ -360,27 +360,28 @@ export default function LeftPanel() {
               <button
                 key={conv.conversationId}
                 onClick={() => router.push(`/chat/${conv.conversationId}`)}
-                className={`relative flex w-full items-center space-x-3.5 rounded-2xl px-4 py-3.5 mt-2 transition-all duration-200 text-left border cursor-pointer ${
-                  isActive 
-                    ? 'bg-card-bg border-border-primary/80 shadow-md shadow-slate-100/10' 
+                className={`relative flex w-full items-center space-x-3.5 rounded-2xl px-4 py-3.5 mt-2 transition-all duration-200 text-left border cursor-pointer ${isActive
+                    ? 'bg-card-bg border-border-primary/80 shadow-md shadow-slate-100/10'
                     : 'bg-transparent border-transparent hover:bg-card-bg/40 hover:border-border-primary/20'
-                }`}
+                  }`}
               >
-                {/* Recipient Avatar */}
-                <div className="relative h-12 w-12 shrink-0 rounded-full bg-surface border border-border-primary/60 overflow-hidden flex items-center justify-center">
-                  {conv.recipient.photoURL ? (
-                    <img 
-                      src={conv.recipient.photoURL} 
-                      alt={conv.recipient.displayName} 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm font-semibold text-text-secondary">{initials}</span>
-                  )}
-                  
-                  {/* Status Indicator Dot */}
-                  {conv.recipient.status === 'online' && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-surface bg-success"></span>
+                <div className="relative h-12 w-12 shrink-0">
+                  <div className="h-full w-full rounded-full overflow-hidden bg-surface border border-border-primary/60 flex items-center justify-center">
+                    {conv.recipient.photoURL ? (
+                      <img
+                        src={conv.recipient.photoURL}
+                        alt={conv.recipient.displayName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold text-text-secondary">
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+
+                  {conv.recipient.status === "online" && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-background"></span>
                   )}
                 </div>
 
@@ -394,7 +395,7 @@ export default function LeftPanel() {
                       {formatTime(conv.updatedAt)}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-1">
                     <p className="truncate text-xs text-text-secondary/90 flex-1 mr-2">
                       {conv.lastSenderId === user?.uid ? 'You: ' : ''}{conv.lastMessage || 'No messages yet'}
