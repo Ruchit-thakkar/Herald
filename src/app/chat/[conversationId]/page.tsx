@@ -64,6 +64,7 @@ export default function ChatDetailPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const initialScrollDoneRef = useRef(false);
@@ -435,11 +436,15 @@ export default function ChatDetailPage() {
     const cleanText = inputText.trim();
     if (!cleanText) return;
     handleSendMessage(cleanText, 'text');
+    inputRef.current?.focus();
   };
 
   const handleEmojiClick = (emoji: string) => {
     setInputText(prev => prev + emoji);
     setShowEmojiPicker(false);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   };
 
   const validateFile = (file: File) => {
@@ -1137,6 +1142,7 @@ export default function ChatDetailPage() {
 
               {/* Message Input */}
               <input
+                ref={inputRef}
                 type="text"
                 placeholder={
                   recipient
@@ -1169,6 +1175,7 @@ export default function ChatDetailPage() {
               {/* Send Button */}
               <button
                 type="submit"
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={sending || !inputText.trim()}
                 className="
         flex
