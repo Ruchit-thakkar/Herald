@@ -1,23 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { 
-  ChevronLeft, Moon, Sun, Bell, Volume2, Shield, Eye, LogOut, Check 
+  ChevronLeft, Moon, Sun, Bell, Volume2, Shield, Eye, LogOut, Check, Smartphone
 } from 'lucide-react';
+import {
+  getLocalNotificationSettings,
+  saveLocalNotificationSettings,
+  registerPushNotifications,
+  unregisterPushNotifications
+} from '@/lib/pushNotifications';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
+  const [vibration, setVibration] = useState(true);
+  const [previews, setPreviews] = useState(true);
+
   const [showPresence, setShowPresence] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
   const [savedMessage, setSavedMessage] = useState('');
+
+  // Load preferences on client-side mount
+  useEffect(() => {
+    const settings = getLocalNotificationSettings();
+    setNotifications(settings.enabled);
+    setSounds(settings.sound);
+    setVibration(settings.vibration);
+    setPreviews(settings.previews);
+  }, []);
 
   const handleThemeToggle = () => {
     toggleTheme();
@@ -26,9 +44,49 @@ export default function SettingsPage() {
 
   const triggerSaveNotice = (msg: string) => {
     setSavedMessage(msg);
-    setTimeout(() => {
-      setSavedMessage(prev => prev === msg ? '' : prev);
+    if ((window as any)._saveNoticeTimeout) {
+      clearTimeout((window as any)._saveNoticeTimeout);
+    }
+    (window as any)._saveNoticeTimeout = setTimeout(() => {
+      setSavedMessage('');
     }, 2000);
+  };
+
+  const handleToggleSetting = async (
+    setting: 'enabled' | 'sound' | 'vibration' | 'previews',
+    currentVal: boolean,
+    setter: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    const nextVal = !currentVal;
+    setter(nextVal);
+
+    const currentSettings = getLocalNotificationSettings();
+    const nextSettings = {
+      ...currentSettings,
+      [setting]: nextVal
+    };
+    saveLocalNotificationSettings(nextSettings);
+    triggerSaveNotice(`Updated setting`);
+
+    // If toggling global alerts, register or remove FCM token dynamically
+    if (setting === 'enabled' && user) {
+      if (nextVal) {
+        try {
+          await registerPushNotifications(user.uid);
+          triggerSaveNotice('Push notifications active');
+        } catch (err) {
+          console.error(err);
+          triggerSaveNotice('Error enabling push');
+        }
+      } else {
+        try {
+          await unregisterPushNotifications(user.uid);
+          triggerSaveNotice('Push notifications off');
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
   };
 
   const handleToggle = (setting: string, currentValue: boolean, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
@@ -113,7 +171,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleToggle('Alerts', notifications, setNotifications)}
+                    onClick={() => handleToggleSetting('enabled', notifications, setNotifications)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       notifications ? 'bg-primary' : 'bg-surface border border-border-primary'
                     }`}
@@ -139,7 +197,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleToggle('Sounds', sounds, setSounds)}
+                    onClick={() => handleToggleSetting('sound', sounds, setSounds)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       sounds ? 'bg-primary' : 'bg-surface border border-border-primary'
                     }`}
@@ -147,6 +205,58 @@ export default function SettingsPage() {
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                         sounds ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Vibration Switch */}
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
+                      <Smartphone className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">Vibration</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Vibrate device on receiving push notification</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSetting('vibration', vibration, setVibration)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      vibration ? 'bg-primary' : 'bg-surface border border-border-primary'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        vibration ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Message Previews Switch */}
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border-primary bg-surface/30">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary">
+                      <Eye className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">Message Previews</p>
+                      <p className="text-xs text-text-secondary mt-0.5 font-medium">Show message sender name and text inside alerts</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSetting('previews', previews, setPreviews)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      previews ? 'bg-primary' : 'bg-surface border border-border-primary'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        previews ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>

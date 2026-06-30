@@ -71,6 +71,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const performLogout = async () => {
     try {
+      if (user) {
+        try {
+          const { unregisterPushNotifications } = await import('@/lib/pushNotifications');
+          await unregisterPushNotifications(user.uid);
+        } catch (err) {
+          console.error('Failed to unregister push:', err);
+        }
+      }
       await signOut(auth);
       setUser(null);
       setProfile(null);
@@ -93,6 +101,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (currentUser) {
         const p = await fetchProfile(currentUser.uid);
         setProfile(p);
+        try {
+          const { registerPushNotifications } = await import('@/lib/pushNotifications');
+          await registerPushNotifications(currentUser.uid);
+        } catch (err) {
+          console.error('Failed to auto register push:', err);
+        }
       } else {
         setProfile(null);
       }

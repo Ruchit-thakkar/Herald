@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
 import MediaViewer from '@/components/MediaViewer';
-import { ref, onValue, push, update, get, set } from 'firebase/database';
+import { ref, onValue, push, update, get, set, remove } from 'firebase/database';
 import LeftPanel from '@/components/LeftPanel';
 import EmojiPicker from '@/components/EmojiPicker';
 import {
@@ -190,6 +190,16 @@ export default function ChatDetailPage() {
     };
   }, []);
 
+  // Update receiver active conversation focus mapping
+  useEffect(() => {
+    if (!user?.uid || !conversationId) return;
+    const activeRef = ref(db, `activeConversation/${user.uid}`);
+    set(activeRef, conversationId);
+    return () => {
+      remove(activeRef).catch(e => console.error('Error removing active conversation:', e));
+    };
+  }, [user?.uid, conversationId]);
+
   // Fetch Conversation metadata and Recipient details
   useEffect(() => {
     if (!user || !conversationId) return;
@@ -342,6 +352,21 @@ export default function ChatDetailPage() {
       };
       await update(ref(db), userConvUpdates);
 
+      // Trigger non-blocking push notification API to recipient
+      fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: recipient.uid,
+          conversationId,
+          messageText: text,
+          messageType: type,
+          fileName,
+          senderName: profile.displayName || user.displayName || 'Someone',
+          senderPhoto: profile.photoURL || ''
+        })
+      }).catch(err => console.error('Error calling send-push API:', err));
+
       setInputText('');
     } catch (err: any) {
       console.error('Error sending message:', err);
@@ -424,6 +449,21 @@ export default function ChatDetailPage() {
         conversationId
       };
       await update(ref(db), userConvUpdates);
+
+      // Trigger non-blocking push notification API to recipient for files
+      fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: recipient.uid,
+          conversationId,
+          messageText: fileUrl, // text field for files is their URL
+          messageType: type,
+          fileName: fileMetadata.fileName,
+          senderName: profile.displayName || user.displayName || 'Someone',
+          senderPhoto: profile.photoURL || ''
+        })
+      }).catch(err => console.error('Error calling send-push API for file:', err));
 
     } catch (err: any) {
       console.error('Error saving file metadata to databases:', err);
