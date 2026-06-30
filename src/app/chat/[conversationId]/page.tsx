@@ -3,24 +3,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { ref, onValue, push, update, get, set } from 'firebase/database';
-import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import LeftPanel from '@/components/LeftPanel';
 import EmojiPicker from '@/components/EmojiPicker';
 import {
   ChevronLeft, Send, Smile, Paperclip, MoreVertical, ShieldAlert,
-  Image as ImageIcon, File as FileIcon, X, RefreshCw
+  Image as ImageIcon, File as FileIcon, X, RefreshCw,
+  Download, ExternalLink, Play, FileText, Clock, AlertCircle
 } from 'lucide-react';
 
 interface Message {
   messageId: string;
   senderId: string;
   text: string;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'video' | 'file';
   fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  fileId?: string;
+  uploadedAt?: number;
+  expiresAt?: number;
   timestamp: number;
-  status: 'sent' | 'delivered' | 'read';
+  status: 'sent' | 'delivered' | 'read' | 'uploading' | 'sending' | 'failed';
+  progress?: number;
+  rawFile?: File;
 }
 
 interface RecipientProfile {
@@ -40,6 +47,7 @@ export default function ChatDetailPage() {
   const conversationId = params?.conversationId as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [activeUploads, setActiveUploads] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [recipient, setRecipient] = useState<RecipientProfile | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(true);
@@ -48,6 +56,8 @@ export default function ChatDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [errorBanner, setErrorBanner] = useState('');
   const [conversation, setConversation] = useState<any>(null);
+
+  const xhrRefs = useRef<{ [tempId: string]: XMLHttpRequest }>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +261,7 @@ export default function ChatDetailPage() {
     }, 5000);
   };
 
-  const handleSendMessage = async (text: string, type: 'text' | 'image' | 'file' = 'text', fileName?: string) => {
+  const handleSendMessage = async (text: string, type: 'text' | 'image' | 'video' | 'file' = 'text', fileName?: string) => {
     // 1. Verify authenticated user is available before any database write
     if (!auth.currentUser || !user || !profile || !conversationId || !recipient) return;
 
@@ -319,6 +329,84 @@ export default function ChatDetailPage() {
     }
   };
 
+  const handleSendFileMessage = async (
+    messageId: string,
+    fileUrl: string,
+    type: 'image' | 'video' | 'file',
+    fileMetadata: {
+      fileId: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+      uploadedAt: number;
+      expiresAt: number;
+    }
+  ) => {
+    if (!auth.currentUser || !user || !profile || !conversationId || !recipient) return;
+
+    try {
+      // 1. Write metadata to Realtime Database message node
+      const rtdbPath = `messages/${conversationId}/${messageId}`;
+      const rtdbPayload = {
+        senderId: user.uid,
+        text: fileUrl,
+        type,
+        fileName: fileMetadata.fileName,
+        fileId: fileMetadata.fileId,
+        fileSize: fileMetadata.fileSize,
+        mimeType: fileMetadata.mimeType,
+        timestamp: fileMetadata.uploadedAt,
+        expiresAt: fileMetadata.expiresAt,
+        status: 'sent' as const
+      };
+      await set(ref(db, rtdbPath), rtdbPayload);
+
+      // 2. Write metadata index to expiringUploads node for easy cleanup querying
+      const cleanupPath = `expiringUploads/${messageId}`;
+      const cleanupPayload = {
+        conversationId,
+        fileId: fileMetadata.fileId,
+        expiresAt: fileMetadata.expiresAt,
+        senderId: user.uid,
+        receiverId: recipient.uid
+      };
+      await set(ref(db, cleanupPath), cleanupPayload);
+
+      // 3. Update Conversation Meta
+      const conversationMeta = {
+        participants: {
+          [user.uid]: true,
+          [recipient.uid]: true
+        },
+        type: 'direct' as const,
+        createdAt: conversation?.createdAt || Date.now(),
+        updatedAt: Date.now(),
+        lastMessage: {
+          text: `Sent a ${type}`,
+          senderId: user.uid,
+          timestamp: Date.now()
+        }
+      };
+      await set(ref(db, `conversations/${conversationId}`), conversationMeta);
+
+      // 4. Update userConversations indices
+      const userConvUpdates: any = {};
+      userConvUpdates[`userConversations/${user.uid}/${conversationId}`] = {
+        ...conversationMeta,
+        conversationId
+      };
+      userConvUpdates[`userConversations/${recipient.uid}/${conversationId}`] = {
+        ...conversationMeta,
+        conversationId
+      };
+      await update(ref(db), userConvUpdates);
+
+    } catch (err: any) {
+      console.error('Error saving file metadata to databases:', err);
+      throw err;
+    }
+  };
+
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanText = inputText.trim();
@@ -331,50 +419,201 @@ export default function ChatDetailPage() {
     setShowEmojiPicker(false);
   };
 
-  // Handle file/image attachment uploads (supports real Firebase storage with base64 fallback)
+  const validateFile = (file: File) => {
+    if (file.size === 0) {
+      return 'File is empty.';
+    }
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+    if (file.size > MAX_SIZE) {
+      return 'File is too large. Maximum size allowed is 25MB.';
+    }
+    // Block executable extensions
+    const blockedExtensions = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.com', '.vbs', '.scr'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (blockedExtensions.includes(ext)) {
+      return 'Executable files are not allowed for security reasons.';
+    }
+    const blockedMimeTypes = [
+      'application/x-msdownload',
+      'application/x-sh',
+      'application/x-bash',
+      'application/x-csh',
+      'application/x-dosexec'
+    ];
+    if (blockedMimeTypes.includes(file.type)) {
+      return 'Executable files are not allowed.';
+    }
+    return null;
+  };
+
+  const startUploadFlow = async (tempMsg: Message) => {
+    const tempId = tempMsg.messageId;
+    const file = tempMsg.rawFile!;
+
+    // Set status to uploading
+    setActiveUploads(prev =>
+      prev.map(m => (m.messageId === tempId ? { ...m, status: 'uploading', progress: 0 } : m))
+    );
+
+    try {
+      // 1. Fetch upload signature from API
+      const authRes = await fetch('/api/imagekit-auth');
+      if (!authRes.ok) {
+        throw new Error('Failed to get upload credentials');
+      }
+      const authData = await authRes.json();
+      const { token, expire, signature, publicKey } = authData;
+
+      // 2. Construct FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileName', file.name);
+      formData.append('publicKey', publicKey);
+      formData.append('signature', signature);
+      formData.append('token', token);
+      formData.append('expire', expire.toString());
+      formData.append('folder', 'Herald/uploads');
+
+      // 3. Upload with XMLHttpRequest to monitor progress
+      const xhr = new XMLHttpRequest();
+      xhrRefs.current[tempId] = xhr;
+
+      xhr.open('POST', 'https://upload.imagekit.io/api/v1/files/upload', true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setActiveUploads(prev =>
+            prev.map(m => (m.messageId === tempId ? { ...m, progress: percentComplete } : m))
+          );
+        }
+      };
+
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+          try {
+            const resData = JSON.parse(xhr.responseText);
+            const { fileId, url } = resData;
+
+            // Transition upload state to sending
+            setActiveUploads(prev =>
+              prev.map(m => (m.messageId === tempId ? { ...m, status: 'sending', progress: 100 } : m))
+            );
+
+            const fileType: 'image' | 'video' | 'file' = file.type.startsWith('image/')
+              ? 'image'
+              : file.type.startsWith('video/')
+              ? 'video'
+              : 'file';
+
+            const uploadedAt = Date.now();
+            const expiresAt = uploadedAt + 24 * 60 * 60 * 1000; // 24 hours
+
+            // Pre-generate the unique messageId using Realtime Database push syntax
+            const finalMessageId = push(ref(db, `messages/${conversationId}`)).key || `file_${Date.now()}`;
+
+            const fileMetadata = {
+              fileId,
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+              uploadedAt,
+              expiresAt
+            };
+
+            // Write metadata to Realtime Database
+            await handleSendFileMessage(finalMessageId, url, fileType, fileMetadata);
+
+            // Complete: Remove from active uploads
+            setActiveUploads(prev => prev.filter(m => m.messageId !== tempId));
+            delete xhrRefs.current[tempId];
+          } catch (err) {
+            console.error('Error completing file metadata save:', err);
+            setActiveUploads(prev =>
+              prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
+            );
+          }
+        } else {
+          console.error('ImageKit error response:', xhr.responseText);
+          setActiveUploads(prev =>
+            prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
+          );
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error('ImageKit upload error');
+        setActiveUploads(prev =>
+          prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
+        );
+      };
+
+      xhr.send(formData);
+
+    } catch (err: any) {
+      console.error('Upload process crash:', err);
+      setActiveUploads(prev =>
+        prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
+      );
+    }
+  };
+
+  const uploadAttachment = async (file: File) => {
+    const errorMsg = validateFile(file);
+    if (errorMsg) {
+      triggerError(errorMsg);
+      return;
+    }
+
+    if (!user || !recipient || !conversationId) return;
+
+    // Create unique temp message tracking ID
+    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const fileType = file.type.startsWith('image/')
+      ? 'image'
+      : file.type.startsWith('video/')
+      ? 'video'
+      : 'file';
+
+    const tempMsg: Message = {
+      messageId: tempId,
+      senderId: user.uid,
+      text: '',
+      type: fileType,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+      timestamp: Date.now(),
+      status: 'uploading',
+      progress: 0,
+      rawFile: file
+    };
+
+    setActiveUploads(prev => [...prev, tempMsg]);
+    startUploadFlow(tempMsg);
+  };
+
+  const handleCancelUpload = (tempId: string) => {
+    const xhr = xhrRefs.current[tempId];
+    if (xhr) {
+      xhr.abort();
+      delete xhrRefs.current[tempId];
+    }
+    setActiveUploads(prev => prev.filter(m => m.messageId !== tempId));
+  };
+
+  const handleRetryUpload = (tempId: string) => {
+    const tempMsg = activeUploads.find(m => m.messageId === tempId);
+    if (tempMsg && tempMsg.rawFile) {
+      startUploadFlow(tempMsg);
+    }
+  };
+
   const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setUploading(true);
-    setErrorBanner('');
-
-    const isImage = file.type.startsWith('image/');
-    const fileType = isImage ? 'image' : 'file';
-
-    try {
-      // 1. Try Firebase Storage Upload
-      const storageRef = sRef(storage, `conversations/${conversationId}/${Date.now()}_${file.name}`);
-      const snap = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snap.ref);
-      await handleSendMessage(downloadURL, fileType, file.name);
-    } catch (err: any) {
-      console.warn('Firebase Storage upload failed, falling back to base64 encoding...', err);
-
-      // 2. Fallback to Base64 in Realtime Database (with a limit check of ~2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        triggerError('File is too large. Max size is 2MB for fallback encoding.');
-        setUploading(false);
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64String = event.target?.result as string;
-        if (base64String) {
-          await handleSendMessage(base64String, fileType, file.name);
-        } else {
-          triggerError('Failed to read attached file.');
-        }
-      };
-      reader.onerror = () => {
-        triggerError('Failed to read attached file.');
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    await uploadAttachment(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Helper to format presence last seen text
@@ -394,10 +633,50 @@ export default function ChatDetailPage() {
     return `Last seen ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
   };
 
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const handleDownloadFile = async (url: string, fileName: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('CORS download failed, opening in new tab:', error);
+      window.open(url, '_blank');
+    }
+  };
+
+  const getRemainingTimeText = (expiresAt?: number) => {
+    if (!expiresAt) return '';
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return 'Expired';
+    const hours = Math.floor(diff / (60 * 60 * 1000));
+    const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+    if (hours > 0) {
+      return `${hours}h ${minutes}m left`;
+    }
+    return `${minutes}m left`;
+  };
+
   // Helper to render messages with date separators and grouping
   const renderMessages = () => {
     let lastDateStr = '';
-    return messages.map((msg, index) => {
+    const combinedMessages = [...messages, ...activeUploads].sort((a, b) => a.timestamp - b.timestamp);
+
+    return combinedMessages.map((msg, index) => {
       const isMe = msg.senderId === user?.uid;
       const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -421,10 +700,18 @@ export default function ChatDetailPage() {
       }
 
       // Message grouping logic
-      const prevMsg = index > 0 ? messages[index - 1] : null;
+      const prevMsg = index > 0 ? combinedMessages[index - 1] : null;
       const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
       const isCloseTime = prevMsg && (msg.timestamp - prevMsg.timestamp < 2 * 60 * 1000); // 2 minutes
       const isGrouped = isSameSender && isCloseTime && !showDateSeparator;
+
+      // Theme-specific styles to fit inside colored bubbles
+      const textPrimaryClass = isMe ? 'text-white' : 'text-text-primary';
+      const textSecondaryClass = isMe ? 'text-white/80' : 'text-text-secondary';
+      const textMutedClass = isMe ? 'text-white/60' : 'text-text-secondary/70';
+      const iconBgClass = isMe ? 'bg-white/10 text-white' : 'bg-primary/10 text-primary';
+      const fileContainerBgClass = isMe ? 'bg-white/5 border border-white/10' : 'bg-background border border-border-primary';
+      const actionBtnHoverClass = isMe ? 'hover:bg-white/10' : 'hover:bg-black/5';
 
       return (
         <React.Fragment key={msg.messageId}>
@@ -447,45 +734,208 @@ export default function ChatDetailPage() {
                   : 'bg-surface text-text-primary rounded-bl-sm border border-border-primary/55'
                   }`}
               >
-                {/* Render Image Message */}
-                {msg.type === 'image' && (
-                  <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-border-primary/50">
-                    <img
-                      src={msg.text}
-                      alt="Attachment"
-                      className="max-h-60 object-contain hover:opacity-90 transition-opacity cursor-pointer"
-                      onClick={() => window.open(msg.text, '_blank')}
-                    />
-                  </div>
-                )}
-
-                {/* Render File Message */}
-                {msg.type === 'file' && (
-                  <div className={`flex items-center space-x-3 p-2.5 rounded-lg mb-1 max-w-full ${isMe ? 'bg-white/10' : 'bg-background border border-border-primary'}`}>
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMe ? 'bg-white/10 text-white' : 'bg-surface text-primary'}`}>
-                      <FileIcon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate text-xs font-semibold leading-tight ${isMe ? 'text-white' : 'text-text-primary'}`}>
-                        {msg.fileName || 'Attached File'}
-                      </p>
-                      <a
-                        href={msg.text}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`text-[10px] underline font-semibold mt-1 inline-block ${isMe ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-primary-hover'}`}
+                {/* 1. RENDER UPLOADING STATE */}
+                {msg.status === 'uploading' && (
+                  <div className="flex flex-col space-y-2 p-1.5 w-64 md:w-72">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="flex items-center space-x-2">
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Uploading File ({msg.progress}%)</span>
+                      </span>
+                      <button 
+                        onClick={() => handleCancelUpload(msg.messageId)}
+                        className="p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                        title="Cancel Upload"
                       >
-                        Download File
-                      </a>
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
+                    <div className="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-white h-full transition-all duration-200" 
+                        style={{ width: `${msg.progress}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-[10px] opacity-70 truncate block">{msg.fileName}</span>
                   </div>
                 )}
 
-                {/* Render Text Message */}
-                {msg.type === 'text' && (
-                  <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
-                    {msg.text}
-                  </p>
+                {/* 2. RENDER SENDING STATE */}
+                {msg.status === 'sending' && (
+                  <div className="flex items-center space-x-2.5 p-2 w-64 md:w-72">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span className="text-xs font-semibold">Sending metadata...</span>
+                  </div>
+                )}
+
+                {/* 3. RENDER FAILED STATE */}
+                {msg.status === 'failed' && (
+                  <div className="flex flex-col space-y-2.5 p-1.5 w-64 md:w-72">
+                    <div className="flex items-center space-x-2 text-xs font-semibold text-red-200">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>Upload Failed</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleRetryUpload(msg.messageId)}
+                        className="px-3 py-1 bg-white/15 hover:bg-white/25 text-xs font-bold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Retry</span>
+                      </button>
+                      <button 
+                        onClick={() => handleCancelUpload(msg.messageId)}
+                        className="px-3 py-1 bg-white/5 hover:bg-white/10 text-xs font-semibold rounded-lg text-white transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <span className="text-[10px] opacity-60 truncate block">{msg.fileName}</span>
+                  </div>
+                )}
+
+                {/* 4. RENDER COMPLETED attachment states */}
+                {(msg.status === 'sent' || msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
+                  <>
+                    {/* Render Image Message */}
+                    {msg.type === 'image' && (
+                      <div className="flex flex-col w-64 max-w-full">
+                        <div className="relative rounded-xl overflow-hidden mb-1.5 border border-white/5 aspect-auto">
+                          <img
+                            src={msg.text}
+                            alt={msg.fileName || 'Attachment'}
+                            loading="lazy"
+                            className="max-h-60 w-full object-cover hover:opacity-95 transition-opacity cursor-pointer rounded-lg"
+                            onClick={() => window.open(msg.text, '_blank')}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between mt-1 px-0.5 text-[10px]">
+                          <div className="flex flex-col min-w-0 flex-1 mr-3">
+                            <p className={`truncate font-semibold ${textPrimaryClass}`}>{msg.fileName}</p>
+                            <p className={`text-[9px] ${textMutedClass}`}>{formatFileSize(msg.fileSize)}</p>
+                          </div>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            {msg.expiresAt && (
+                              <span className={`flex items-center space-x-0.5 ${textMutedClass} mr-1`} title={getRemainingTimeText(msg.expiresAt)}>
+                                <Clock className="h-3 w-3" />
+                                <span className="truncate max-w-[65px] font-semibold">{getRemainingTimeText(msg.expiresAt).replace(' left', '')}</span>
+                              </span>
+                            )}
+                            <button 
+                              onClick={() => window.open(msg.text, '_blank')} 
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                              title="Open in New Tab"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'image.jpg')} 
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                              title="Download"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Video Message */}
+                    {msg.type === 'video' && (
+                      <div className="flex flex-col w-64 max-w-full">
+                        <div className="relative rounded-xl overflow-hidden mb-1.5 border border-white/5 bg-black">
+                          <video
+                            src={msg.text}
+                            className="max-h-60 w-full object-contain rounded-lg"
+                            controls
+                            preload="metadata"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between mt-1 px-0.5 text-[10px]">
+                          <div className="flex flex-col min-w-0 flex-1 mr-3">
+                            <p className={`truncate font-semibold ${textPrimaryClass}`}>{msg.fileName}</p>
+                            <p className={`text-[9px] ${textMutedClass}`}>{formatFileSize(msg.fileSize)}</p>
+                          </div>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            {msg.expiresAt && (
+                              <span className={`flex items-center space-x-0.5 ${textMutedClass} mr-1`} title={getRemainingTimeText(msg.expiresAt)}>
+                                <Clock className="h-3 w-3" />
+                                <span className="truncate max-w-[65px] font-semibold">{getRemainingTimeText(msg.expiresAt).replace(' left', '')}</span>
+                              </span>
+                            )}
+                            <button 
+                              onClick={() => window.open(msg.text, '_blank')} 
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                              title="Open in New Tab"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'video.mp4')} 
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                              title="Download"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render File/PDF Message */}
+                    {msg.type === 'file' && (
+                      <div className="flex flex-col w-64 sm:w-72">
+                        <div className={`flex items-center space-x-3 p-3 rounded-xl ${fileContainerBgClass}`}>
+                          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBgClass}`}>
+                            {msg.mimeType === 'application/pdf' ? (
+                              <FileText className="h-5.5 w-5.5" />
+                            ) : (
+                              <FileIcon className="h-5.5 w-5.5" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`truncate text-xs font-bold leading-tight ${textPrimaryClass}`}>
+                              {msg.fileName || 'Attached File'}
+                            </p>
+                            <p className={`text-[10px] mt-1 ${textMutedClass}`}>
+                              {formatFileSize(msg.fileSize)} • {msg.mimeType === 'application/pdf' ? 'PDF' : msg.fileName?.split('.').pop()?.toUpperCase() || 'FILE'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-2.5 px-0.5 text-[10px]">
+                          {msg.expiresAt && (
+                            <span className={`flex items-center space-x-1 ${textMutedClass}`} title={getRemainingTimeText(msg.expiresAt)}>
+                              <Clock className="h-3 w-3" />
+                              <span className="font-semibold">{getRemainingTimeText(msg.expiresAt)}</span>
+                            </span>
+                          )}
+                          <div className="flex items-center space-x-3 ml-auto">
+                            <button 
+                              onClick={() => window.open(msg.text, '_blank')} 
+                              className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>Open</span>
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'download')} 
+                              className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
+                            >
+                              <Download className="h-3 w-3" />
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Text Message */}
+                    {msg.type === 'text' && (
+                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
+                        {msg.text}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -614,16 +1064,7 @@ export default function ChatDetailPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          {/* Attachment Upload State Overlay */}
-          {uploading && (
-            <div className="absolute inset-0 bg-background/50 backdrop-blur-md flex items-center justify-center z-10 animate-fade-in">
-              <div className="flex flex-col items-center space-y-3 bg-card-bg/95 border border-border-primary p-6 rounded-2xl shadow-2xl backdrop-blur-md">
-                <RefreshCw className="h-7 w-7 animate-spin text-primary" />
-                <span className="text-xs font-bold text-text-primary tracking-widest uppercase">Uploading Attachment</span>
-              </div>
-            </div>
-          )}
-
+ 
           {/* Input Bar Area */}
           <div className="border-t border-border-primary bg-surface px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 lg:px-7 lg:py-6">
             <form

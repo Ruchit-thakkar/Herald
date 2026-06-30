@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { ref, update } from 'firebase/database';
-import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ChevronLeft, User as UserIcon, Mail, Calendar, Lock, Camera, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -53,13 +52,39 @@ export default function ProfilePage() {
     setSuccess(false);
 
     try {
-      // 1. Try Firebase Storage upload
-      const storageRef = sRef(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`);
-      const snap = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snap.ref);
-      setAvatarUrl(downloadURL);
+      // 1. Fetch upload credentials from the Next.js API
+      const authRes = await fetch('/api/imagekit-auth');
+      if (!authRes.ok) {
+        throw new Error('Failed to fetch authentication parameters');
+      }
+      const authData = await authRes.json();
+      const { token, expire, signature, publicKey } = authData;
+
+      // 2. Prepare FormData for ImageKit Upload API (Folder: Herald/profile)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileName', `${user.uid}_${Date.now()}_${file.name}`);
+      formData.append('publicKey', publicKey);
+      formData.append('signature', signature);
+      formData.append('token', token);
+      formData.append('expire', expire.toString());
+      formData.append('folder', 'Herald/profile');
+
+      // 3. Upload file directly to ImageKit
+      const uploadRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errorText = await uploadRes.text();
+        throw new Error(`Upload API failure: ${errorText}`);
+      }
+
+      const ikResponse = await uploadRes.json();
+      setAvatarUrl(ikResponse.url);
     } catch (err: any) {
-      console.warn('Firebase Storage avatar upload failed, falling back to base64 encoding...', err);
+      console.warn('ImageKit profile avatar upload failed, falling back to base64 encoding...', err);
       
       // 2. Base64 fallback (limit avatar to 1.5MB for realtime database storage)
       if (file.size > 1.5 * 1024 * 1024) {
@@ -80,6 +105,7 @@ export default function ProfilePage() {
       reader.readAsDataURL(file);
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
