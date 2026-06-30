@@ -8,7 +8,7 @@ export default function RootGatewayPage() {
   const { loading } = useAuth();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#080C14] text-white">
+    <div className="flex min-h-screen items-center justify-center bg-background text-text-primary">
       <div className="flex flex-col items-center space-y-4">
         {/* Brand Logo Animation */}
         <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-xl shadow-emerald-500/20 animate-pulse bg-slate-900 border border-slate-800">

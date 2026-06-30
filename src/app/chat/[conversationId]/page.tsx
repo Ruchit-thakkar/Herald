@@ -308,7 +308,7 @@ export default function ChatDetailPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#080C14] text-white overflow-hidden">
+    <div className="flex h-screen w-screen bg-background text-text-primary overflow-hidden">
       
       {/* Left Panel - Hidden on mobile when viewing a conversation */}
       <div className="hidden md:block md:w-[400px] shrink-0 h-full relative">
@@ -316,26 +316,26 @@ export default function ChatDetailPage() {
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div className="flex flex-col flex-1 h-full bg-[#080C14] relative">
+      <div className="flex flex-col flex-1 h-full bg-background relative">
         
         {/* Error Alert Banner */}
         {errorBanner && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-red-500/10 border border-red-500/30 px-5 py-3 text-xs text-red-400 shadow-2xl backdrop-blur-md">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-error/10 border border-error/30 px-5 py-3 text-xs text-error shadow-2xl backdrop-blur-md">
             <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
             <span className="font-semibold">{errorBanner}</span>
-            <button onClick={() => setErrorBanner('')} className="text-red-400 hover:text-white pl-2">
+            <button onClick={() => setErrorBanner('')} className="text-error hover:text-text-primary pl-2">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
         {/* Chat Header */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-900/80 px-4 md:px-6 bg-[#0B0F19]">
+        <div className="flex h-16 items-center justify-between border-b border-border-primary px-4 md:px-6 bg-surface">
           <div className="flex items-center space-x-3 min-w-0">
             {/* Back Button (Mobile only) */}
             <button 
               onClick={() => router.push('/home')}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white active:scale-95 transition-all"
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary active:scale-95 transition-all"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -343,25 +343,25 @@ export default function ChatDetailPage() {
             {/* Recipient Info */}
             {recipient && (
               <div className="flex items-center space-x-3 min-w-0">
-                <div className="relative h-10 w-10 shrink-0 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
+                <div className="relative h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
                   {recipient.photoURL ? (
                     <img src={recipient.photoURL} alt={recipient.displayName} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-sm font-semibold text-slate-300">
+                    <span className="text-sm font-semibold text-text-secondary">
                       {recipient.displayName
                         ? recipient.displayName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
                         : '?'}
                     </span>
                   )}
                   {recipient.status === 'online' && (
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-[#0B0F19] bg-emerald-500"></span>
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-surface bg-success"></span>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-bold truncate text-white leading-tight">
+                  <h4 className="text-sm font-bold truncate text-text-primary leading-tight">
                     {recipient.displayName}
                   </h4>
-                  <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                  <p className="text-[10px] text-text-secondary truncate mt-0.5">
                     {recipient.status === 'online' ? 'Online' : formatLastSeen(recipient.lastSeen)}
                   </p>
                 </div>
@@ -370,7 +370,7 @@ export default function ChatDetailPage() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-surface text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
               <MoreVertical className="h-5 w-5" />
             </button>
           </div>
@@ -380,16 +380,16 @@ export default function ChatDetailPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
           {loadingMessages ? (
             <div className="flex flex-col items-center justify-center h-full space-y-3">
-              <RefreshCw className="h-7 w-7 animate-spin text-emerald-500/50" />
-              <span className="text-xs text-slate-500 font-semibold tracking-wider uppercase animate-pulse">Syncing Conversation</span>
+              <RefreshCw className="h-7 w-7 animate-spin text-primary/50" />
+              <span className="text-xs text-text-secondary font-semibold tracking-wider uppercase animate-pulse">Syncing Conversation</span>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 mb-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
                 <Send className="h-5 w-5 rotate-45" />
               </div>
-              <h4 className="text-sm font-bold text-slate-400">Say Hello!</h4>
-              <p className="text-xs text-slate-500 max-w-xs mt-1">
+              <h4 className="text-sm font-bold text-text-secondary">Say Hello!</h4>
+              <p className="text-xs text-text-secondary/70 max-w-xs mt-1">
                 This is the beginning of your conversation. Send a message to start chatting.
               </p>
             </div>
@@ -401,18 +401,19 @@ export default function ChatDetailPage() {
               return (
                 <div 
                   key={msg.messageId}
-                  className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className="flex w-full mt-1.5 transition-all duration-150"
+                  style={{ justifyContent: isMe ? 'flex-end' : 'flex-start' }}
                 >
                   <div 
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-md ${
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${
                       isMe 
-                        ? 'bg-emerald-500 text-white rounded-br-none font-medium' 
-                        : 'bg-[#151D30] text-slate-100 rounded-bl-none border border-slate-800/60'
+                        ? 'bg-primary text-white rounded-br-none font-medium' 
+                        : 'bg-surface text-text-primary rounded-bl-none border border-border-primary'
                     }`}
                   >
                     {/* Render Image Message */}
                     {msg.type === 'image' && (
-                      <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-black/10">
+                      <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-border-primary/50">
                         <img 
                           src={msg.text} 
                           alt="Attachment" 
@@ -424,19 +425,19 @@ export default function ChatDetailPage() {
 
                     {/* Render File Message */}
                     {msg.type === 'file' && (
-                      <div className="flex items-center space-x-3 bg-black/15 p-2.5 rounded-lg mb-1 max-w-full">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/20 text-emerald-300">
+                      <div className={`flex items-center space-x-3 p-2.5 rounded-lg mb-1 max-w-full ${isMe ? 'bg-white/10' : 'bg-background border border-border-primary'}`}>
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMe ? 'bg-white/10 text-white' : 'bg-surface text-primary'}`}>
                           <FileIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-white leading-tight">
+                          <p className={`truncate text-xs font-semibold leading-tight ${isMe ? 'text-white' : 'text-text-primary'}`}>
                             {msg.fileName || 'Attached File'}
                           </p>
                           <a 
                             href={msg.text} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-[10px] text-emerald-200 underline font-semibold mt-1 inline-block hover:text-white"
+                            className={`text-[10px] underline font-semibold mt-1 inline-block ${isMe ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-primary-hover'}`}
                           >
                             Download File
                           </a>
@@ -452,7 +453,7 @@ export default function ChatDetailPage() {
                     )}
 
                     {/* Timestamp Info */}
-                    <div className={`flex items-center justify-end space-x-1.5 mt-1 text-[9px] ${isMe ? 'text-emerald-100/70' : 'text-slate-500'}`}>
+                    <div className={`flex items-center justify-end space-x-1.5 mt-1 text-[9px] ${isMe ? 'text-white/70' : 'text-text-secondary/70'}`}>
                       <span>{formattedTime}</span>
                     </div>
                   </div>
@@ -465,16 +466,16 @@ export default function ChatDetailPage() {
 
         {/* Attachment Upload State Overlay */}
         {uploading && (
-          <div className="absolute inset-0 bg-[#080C14]/60 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in">
-            <div className="flex flex-col items-center space-y-3 bg-[#0F1626] border border-slate-800 p-6 rounded-2xl shadow-2xl">
-              <RefreshCw className="h-7 w-7 animate-spin text-emerald-500" />
-              <span className="text-xs font-bold text-white tracking-widest uppercase">Uploading Attachment</span>
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in">
+            <div className="flex flex-col items-center space-y-3 bg-card-bg border border-border-primary p-6 rounded-2xl shadow-2xl">
+              <RefreshCw className="h-7 w-7 animate-spin text-primary" />
+              <span className="text-xs font-bold text-text-primary tracking-widest uppercase">Uploading Attachment</span>
             </div>
           </div>
         )}
 
         {/* Input Bar Area */}
-        <div className="border-t border-slate-900/80 px-4 py-3 bg-[#0B0F19]">
+        <div className="border-t border-border-primary px-4 py-3 bg-surface">
           <form onSubmit={handleTextSubmit} className="flex items-center space-x-3 relative">
             
             {/* Attachment Button */}
@@ -487,7 +488,7 @@ export default function ChatDetailPage() {
             <button 
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary hover:border-text-secondary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
               title="Attach Image/File"
             >
               <Paperclip className="h-4.5 w-4.5" />
@@ -500,8 +501,8 @@ export default function ChatDetailPage() {
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all cursor-pointer ${
                   showEmojiPicker 
-                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white'
+                    ? 'bg-primary/10 border-primary text-primary' 
+                    : 'bg-background border-border-primary text-text-secondary hover:border-text-secondary hover:text-text-primary'
                 }`}
                 title="Add Emoji"
               >
@@ -510,13 +511,13 @@ export default function ChatDetailPage() {
 
               {/* Popover Emoji Panel */}
               {showEmojiPicker && (
-                <div className="absolute bottom-12 left-0 w-64 rounded-xl border border-slate-850 bg-[#0F1626] p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="absolute bottom-12 left-0 w-64 rounded-xl border border-border-primary bg-card-bg p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
                   {emojiList.map((emo) => (
                     <button
                       key={emo}
                       type="button"
                       onClick={() => handleEmojiClick(emo)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-slate-800 active:scale-90 transition-all cursor-pointer"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-surface active:scale-90 transition-all cursor-pointer"
                     >
                       {emo}
                     </button>
@@ -531,14 +532,14 @@ export default function ChatDetailPage() {
               placeholder="Type a message..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-850 bg-[#0A0E1A] py-2.5 px-4 text-sm text-white placeholder-slate-650 outline-none hover:border-slate-800 focus:border-emerald-500 transition-colors"
+              className="flex-1 rounded-xl border border-border-primary bg-background py-2.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
             />
 
             {/* Send Action */}
             <button 
               type="submit"
               disabled={sending || !inputText.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/10 hover:bg-emerald-600 hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <Send className="h-4.5 w-4.5" />
             </button>

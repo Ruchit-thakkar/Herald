@@ -181,27 +181,27 @@ export default function NewChatPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#080C14] px-4 py-8 md:py-16 text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8 md:py-16 text-text-primary">
       <div className="w-full max-w-lg space-y-6">
         
         {/* Navigation & Header */}
         <div className="flex items-center justify-between pb-2">
           <button 
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F1626] border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
+          <span className="text-sm font-semibold text-text-secondary uppercase tracking-widest">
             New Conversation
           </span>
           <div className="w-10"></div> {/* spacer */}
         </div>
 
         {/* Card Panel */}
-        <div className="rounded-2xl border border-card-border bg-[#0F1626] p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md">
           {errorMessage && (
-            <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/20 p-3.5 text-sm text-red-400 flex items-start space-x-2">
+            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
               <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
@@ -210,12 +210,12 @@ export default function NewChatPage() {
           {/* Global User Search Form */}
           <form onSubmit={handleSearch} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">
                 Search Global Users
               </label>
               <div className="relative flex space-x-2">
                 <div className="relative flex-1">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-semibold select-none">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-text-secondary font-semibold select-none">
                     @
                   </span>
                   <input
@@ -223,14 +223,14 @@ export default function NewChatPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="search by username (e.g. ruchit)"
-                    className="block w-full rounded-xl border border-slate-800 bg-[#0A0E1A] py-3.5 pl-8 pr-4 text-sm text-white placeholder-slate-650 outline-none hover:border-slate-750 focus:border-emerald-500 transition-colors"
+                    className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-8 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
                     required
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={searching || !searchQuery.trim()}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
                 >
                   {searching ? (
                     <RefreshCw className="h-5 w-5 animate-spin" />
@@ -244,53 +244,53 @@ export default function NewChatPage() {
 
           {/* Results List */}
           <div className="mt-8 space-y-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
               Search Results
             </h4>
 
             {loadingConv ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                <RefreshCw className="h-6 w-6 animate-spin text-emerald-500" />
-                <span className="text-xs text-slate-400 font-medium">Initializing secure chat...</span>
+                <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                <span className="text-xs text-text-secondary font-medium">Initializing secure chat...</span>
               </div>
             ) : results.length > 0 ? (
-              <div className="divide-y divide-slate-900 overflow-hidden rounded-xl border border-slate-850 bg-[#0A0E1A]">
+              <div className="divide-y divide-border-primary overflow-hidden rounded-xl border border-border-primary bg-background">
                 {results.map((target) => (
                   <button
                     key={target.uid}
                     onClick={() => handleStartChat(target)}
-                    className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-slate-900/60 text-left transition-colors cursor-pointer group"
+                    className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-surface text-left transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3 min-w-0">
-                      <div className="h-10 w-10 shrink-0 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
                         {target.photoURL ? (
                           <img src={target.photoURL} alt={target.displayName} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="text-sm font-semibold text-slate-300">
+                          <span className="text-sm font-semibold text-text-secondary">
                             {getInitials(target.displayName)}
                           </span>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-white truncate leading-tight">
+                        <p className="text-sm font-bold text-text-primary truncate leading-tight">
                           {target.displayName}
                         </p>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                        <p className="text-xs text-text-secondary truncate mt-0.5">
                           @{target.username}
                         </p>
                       </div>
                     </div>
                     
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 border border-slate-800 text-slate-400 group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition-all">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary group-hover:text-primary group-hover:border-primary transition-all">
                       <MessageSquarePlus className="h-4.5 w-4.5" />
                     </div>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-slate-850 rounded-xl">
-                <UserIcon className="h-8 w-8 text-slate-700 mb-2" />
-                <p className="text-xs text-slate-500 max-w-xs">
+              <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-border-primary rounded-xl">
+                <UserIcon className="h-8 w-8 text-text-secondary/45 mb-2" />
+                <p className="text-xs text-text-secondary max-w-xs">
                   {searchQuery ? 'No search hits.' : 'Type a username above to search globally across Herald.'}
                 </p>
               </div>

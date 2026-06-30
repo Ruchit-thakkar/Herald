@@ -128,35 +128,35 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#080C14] px-4 py-8 md:py-16 text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8 md:py-16 text-text-primary">
       <div className="w-full max-w-xl space-y-6">
         
         {/* Navigation & Header */}
         <div className="flex items-center justify-between pb-2">
           <button 
             onClick={() => router.push('/home')}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F1626] border border-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             title="Back to Home"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="text-sm font-semibold text-slate-500 uppercase tracking-widest">
+          <span className="text-sm font-semibold text-text-secondary uppercase tracking-widest">
             Profile Settings
           </span>
           <div className="w-10"></div> {/* spacer */}
         </div>
 
         {/* Card Body */}
-        <div className="rounded-2xl border border-card-border bg-[#0F1626] p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md">
           {error && (
-            <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/20 p-3.5 text-sm text-red-400 flex items-start space-x-2">
+            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
               <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3.5 text-sm text-emerald-400 flex items-start space-x-2">
+            <div className="mb-6 rounded-lg bg-success/10 border border-success/20 p-3.5 text-sm text-success flex items-start space-x-2">
               <Check className="h-5 w-5 shrink-0 mt-0.5" />
               <span>Profile updated successfully!</span>
             </div>
@@ -167,11 +167,11 @@ export default function ProfilePage() {
             {/* Avatar Selection Area */}
             <div className="flex flex-col items-center pb-4">
               <div className="relative group">
-                <div className="h-24 w-24 rounded-full bg-slate-800 border-2 border-slate-700 overflow-hidden flex items-center justify-center shadow-xl">
+                <div className="h-24 w-24 rounded-full bg-surface border-2 border-border-primary overflow-hidden flex items-center justify-center shadow-xl">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar Preview" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-bold text-slate-350">
+                    <span className="text-2xl font-bold text-text-secondary">
                       {displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                     </span>
                   )}
@@ -189,7 +189,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="absolute bottom-0 right-0 p-2 rounded-full bg-emerald-500 hover:bg-emerald-600 border border-slate-900 text-white shadow-lg cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 disabled:opacity-50"
+                  className="absolute bottom-0 right-0 p-2 rounded-full bg-primary hover:bg-primary-hover border border-background text-white shadow-lg cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 disabled:opacity-50"
                   title="Upload Custom Image"
                 >
                   {uploading ? (
@@ -202,7 +202,7 @@ export default function ProfilePage() {
 
               {/* Preset Selection Options */}
               <div className="mt-5 w-full">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest text-center mb-3">
+                <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest text-center mb-3">
                   Or select a premium preset avatar
                 </p>
                 <div className="grid grid-cols-6 gap-2 justify-items-center max-w-sm mx-auto">
@@ -213,10 +213,10 @@ export default function ProfilePage() {
                         key={presetUrl}
                         type="button"
                         onClick={() => handlePresetSelect(presetUrl)}
-                        className={`h-11 w-11 rounded-full border-2 overflow-hidden transition-all bg-slate-900 cursor-pointer ${
+                        className={`h-11 w-11 rounded-full border-2 overflow-hidden transition-all bg-surface cursor-pointer ${
                           isSelected 
-                            ? 'border-emerald-500 scale-110 shadow-lg shadow-emerald-500/10' 
-                            : 'border-slate-850 hover:border-slate-700'
+                            ? 'border-primary scale-110 shadow-lg' 
+                            : 'border-border-primary hover:border-text-secondary'
                         }`}
                       >
                         <img src={presetUrl} alt="Avatar Preset" className="h-full w-full object-cover" />
@@ -229,7 +229,7 @@ export default function ProfilePage() {
 
             {/* Display Name Input */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">
                 Display Name
               </label>
               <input
@@ -237,7 +237,7 @@ export default function ProfilePage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Enter Display Name"
-                className="block w-full rounded-lg border border-slate-800 bg-[#0A0E1A] py-3.5 px-4 text-sm text-white placeholder-slate-650 outline-none hover:border-slate-750 focus:border-emerald-500 transition-colors"
+                className="block w-full rounded-lg border border-border-primary bg-background py-3.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
                 required
               />
             </div>
@@ -245,59 +245,59 @@ export default function ProfilePage() {
             {/* Username display (Read-Only) */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest">
                   Username
                 </label>
-                <span className="text-[10px] text-slate-500 flex items-center space-x-1 font-medium">
+                <span className="text-[10px] text-text-secondary/60 flex items-center space-x-1 font-medium font-sans">
                   <Lock className="h-3 w-3" />
                   <span>Permanent UID</span>
                 </span>
               </div>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-650 font-semibold select-none">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-text-secondary/60 font-semibold select-none">
                   @
                 </span>
                 <input
                   type="text"
                   value={profile?.username || ''}
                   disabled
-                  className="block w-full rounded-lg border border-slate-850/80 bg-slate-950/60 py-3.5 pl-8 pr-4 text-sm text-slate-500 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-8 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
 
             {/* Email display (Read-Only) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">
                 Email Address
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-650">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary/60">
                   <Mail className="h-4 w-4" />
                 </div>
                 <input
                   type="email"
                   value={profile?.email || user?.email || ''}
                   disabled
-                  className="block w-full rounded-lg border border-slate-850/80 bg-slate-950/60 py-3.5 pl-10 pr-4 text-sm text-slate-500 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
 
             {/* Account Created Date (Read-Only) */}
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-widest mb-2">
                 Account Created
               </label>
               <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-650">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary/60">
                   <Calendar className="h-4 w-4" />
                 </div>
                 <input
                   type="text"
                   value={formatJoinedDate(profile?.createdAt)}
                   disabled
-                  className="block w-full rounded-lg border border-slate-850/80 bg-slate-950/60 py-3.5 pl-10 pr-4 text-sm text-slate-500 cursor-not-allowed select-none outline-none"
+                  className="block w-full rounded-lg border border-border-primary bg-surface/50 py-3.5 pl-10 pr-4 text-sm text-text-secondary/60 cursor-not-allowed select-none outline-none"
                 />
               </div>
             </div>
@@ -306,7 +306,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex w-full justify-center rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 cursor-pointer"
+              className="flex w-full justify-center rounded-lg bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md cursor-pointer"
             >
               {saving ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />

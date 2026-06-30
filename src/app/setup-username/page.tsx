@@ -224,10 +224,10 @@ export default function SetupUsernamePage() {
 
   if (!user || profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#080C14] text-white">
+      <div className="flex min-h-screen items-center justify-center bg-background text-text-primary">
         <div className="flex flex-col items-center space-y-4">
-          <RefreshCw className="h-10 w-10 animate-spin text-emerald-500" />
-          <p className="text-sm font-medium tracking-widest text-slate-400 uppercase animate-pulse">
+          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-medium tracking-widest text-text-secondary uppercase animate-pulse">
             Loading profile wizard...
           </p>
         </div>
@@ -236,37 +236,37 @@ export default function SetupUsernamePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#080C14] px-4 py-12 sm:px-6 lg:px-8 text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 text-text-primary">
       <div className="w-full max-w-md space-y-8">
         
         {/* Header */}
         <div className="flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-lg shadow-emerald-500/10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-slate-900 border border-border-primary shadow-lg">
             <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-white text-gradient">
+          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-text-primary text-gradient">
             Set Up Profile
           </h2>
-          <p className="mt-2 text-center text-sm text-slate-400">
+          <p className="mt-2 text-center text-sm text-text-secondary">
             Choose your display name and unique username
           </p>
         </div>
 
         {/* Card Wrapper */}
-        <div className="rounded-2xl border border-card-border bg-[#0F1626] p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-2xl border border-border-primary bg-card-bg p-8 shadow-2xl backdrop-blur-md">
           {error && (
-            <div className="mb-6 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3 text-sm text-error">
               {error}
             </div>
           )}
 
           <div className="flex justify-between items-center mb-6">
-            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">
+            <span className="text-xs font-semibold text-primary uppercase tracking-widest">
               Register Successful
             </span>
             <button
               onClick={handleLogout}
-              className="text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              className="text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
             >
               Sign Out
             </button>
@@ -275,7 +275,7 @@ export default function SetupUsernamePage() {
           <form onSubmit={handleSaveProfile} className="space-y-6">
             {/* Display Name Input */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
                 Display Name
               </label>
               <input
@@ -283,18 +283,18 @@ export default function SetupUsernamePage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Ruchit Thakkar"
-                className="block w-full rounded-lg border border-slate-800 bg-[#0A0E1A] py-3.5 px-4 text-white placeholder-slate-600 outline-none hover:border-slate-700 focus:border-emerald-500 transition-colors"
+                className="block w-full rounded-lg border border-border-primary bg-background py-3.5 px-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
                 required
               />
             </div>
 
             {/* Username Input */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
                 Username
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-500 font-semibold select-none">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-text-secondary font-semibold select-none">
                   @
                 </span>
                 <input
@@ -306,7 +306,7 @@ export default function SetupUsernamePage() {
                     checkUsernameAvailability(cleanVal);
                   }}
                   placeholder="ruchit"
-                  className="block w-full rounded-lg border border-slate-800 bg-[#0A0E1A] py-3.5 pl-8 pr-4 text-white placeholder-slate-600 outline-none hover:border-slate-700 focus:border-emerald-500 transition-colors"
+                  className="block w-full rounded-lg border border-border-primary bg-background py-3.5 pl-8 pr-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
                   required
                 />
               </div>
@@ -314,21 +314,21 @@ export default function SetupUsernamePage() {
 
             {/* Availability Indicator */}
             {usernameStatus === 'checking' && (
-              <p className="text-xs text-slate-400 flex items-center space-x-1.5">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-500" />
+              <p className="text-xs text-text-secondary flex items-center space-x-1.5">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
                 <span>Checking availability...</span>
               </p>
             )}
 
             {usernameStatus === 'available' && (
-              <p className="text-xs text-emerald-400 flex items-center space-x-1.5">
+              <p className="text-xs text-success flex items-center space-x-1.5">
                 <CheckCircle className="h-4 w-4" />
                 <span>Username is available!</span>
               </p>
             )}
 
             {usernameError && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 flex items-start space-x-2">
+              <div className="rounded-lg bg-error/10 border border-error/20 p-3 text-xs text-error flex items-start space-x-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{usernameError}</span>
               </div>
@@ -337,17 +337,17 @@ export default function SetupUsernamePage() {
             {/* Suggestions Block */}
             {suggestions.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-slate-400">Suggestions:</p>
+                <p className="text-xs text-text-secondary">Suggestions:</p>
                 <div className="flex flex-wrap gap-2">
                   {suggestions.map((sugg) => (
                     <button
                       key={sugg}
                       type="button"
                       onClick={() => handleSuggestionClick(sugg)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all duration-150 ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all duration-150 cursor-pointer ${
                         username === sugg
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                          : 'bg-[#0A0E1A] border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+                          ? 'bg-primary/20 border-primary text-primary'
+                          : 'bg-background border-border-primary text-text-secondary hover:border-text-secondary hover:text-text-primary'
                       }`}
                     >
                       @{sugg}
@@ -361,7 +361,7 @@ export default function SetupUsernamePage() {
             <button
               type="submit"
               disabled={saving || loading || usernameStatus !== 'available' || !displayName.trim()}
-              className="flex w-full justify-center rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20"
+              className="flex w-full justify-center rounded-lg bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md"
             >
               {saving ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />

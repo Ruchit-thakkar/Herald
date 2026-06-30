@@ -7,8 +7,9 @@ import { db } from '@/lib/firebase';
 import { ref, onValue, get } from 'firebase/database';
 import { 
   ShieldCheck, Search, Plus, User as UserIcon, Settings as SettingsIcon, LogOut, 
-  ChevronRight, Circle, RefreshCw
+  ChevronRight, Circle, RefreshCw, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 
 interface RecipientProfile {
   uid: string;
@@ -31,6 +32,7 @@ export default function LeftPanel() {
   const router = useRouter();
   const params = useParams();
   const { user, profile, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -242,15 +244,29 @@ export default function LeftPanel() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col border-r border-slate-900 bg-[#0B0F19] text-white">
+    <div className="flex h-full w-full flex-col border-r border-border-primary bg-surface text-text-primary">
       {/* Top Header */}
-      <div className="relative flex h-16 items-center justify-between px-5 border-b border-slate-900">
+      <div className="relative flex h-16 items-center justify-between px-5 border-b border-border-primary">
         <div className="flex items-center space-x-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden bg-card-bg border border-border-primary shadow-sm">
             <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
           <span className="text-lg font-bold tracking-tight text-gradient">Herald</span>
         </div>
+
+        <div className="flex items-center space-x-3">
+          {/* Theme Toggle Button */}
+          <button 
+            onClick={toggleTheme}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:border-text-secondary active:scale-95 transition-all cursor-pointer"
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4.5 w-4.5 animate-in spin-in-90 duration-300" />
+            ) : (
+              <Moon className="h-4.5 w-4.5 animate-in spin-in-90 duration-300" />
+            )}
+          </button>
 
         {/* User Profile Menu Dropdown */}
         <div 
@@ -261,7 +277,7 @@ export default function LeftPanel() {
         >
           <button 
             onClick={handleAvatarClick}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 border border-slate-700 hover:border-emerald-500 overflow-hidden cursor-pointer transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border-primary hover:border-primary overflow-hidden cursor-pointer transition-colors"
           >
             {profile?.photoURL ? (
               <img 
@@ -278,44 +294,45 @@ export default function LeftPanel() {
 
           {/* Hover/Click Dropdown Menu */}
           {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-850 bg-[#0F1626] p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border-primary bg-card-bg p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
               <button 
                 onClick={() => { router.push('/profile'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-colors text-left"
               >
-                <UserIcon className="h-4.5 w-4.5 text-slate-400" />
+                <UserIcon className="h-4.5 w-4.5 text-text-secondary" />
                 <span>Profile</span>
               </button>
               <button 
                 onClick={() => { router.push('/settings'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-colors text-left"
               >
-                <SettingsIcon className="h-4.5 w-4.5 text-slate-400" />
+                <SettingsIcon className="h-4.5 w-4.5 text-text-secondary" />
                 <span>Settings</span>
               </button>
-              <div className="my-1 border-t border-slate-800"></div>
+              <div className="my-1 border-t border-border-primary"></div>
               <button 
                 onClick={() => { logout(); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-error hover:bg-error/10 hover:text-error transition-colors text-left"
               >
-                <LogOut className="h-4.5 w-4.5 text-red-400" />
+                <LogOut className="h-4.5 w-4.5 text-error" />
                 <span>Logout</span>
               </button>
             </div>
           )}
         </div>
       </div>
+    </div>
 
       {/* Search Bar */}
       <div className="px-4 py-3">
         <div className="relative">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-text-secondary" />
           <input 
             type="text"
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-850 bg-[#0A0E1A] py-2 pl-9 pr-4 text-sm text-white placeholder-slate-600 outline-none hover:border-slate-800 focus:border-emerald-500/50 transition-colors"
+            className="w-full rounded-lg border border-border-primary bg-background py-2 pl-9 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
           />
         </div>
       </div>
@@ -324,13 +341,13 @@ export default function LeftPanel() {
       <div className="flex-1 overflow-y-auto px-2 pb-20">
         {loading ? (
           <div className="flex flex-col items-center justify-center pt-20 space-y-3">
-            <RefreshCw className="h-6 w-6 animate-spin text-emerald-500/50" />
-            <span className="text-xs text-slate-500 uppercase tracking-widest font-semibold animate-pulse">Syncing chats</span>
+            <RefreshCw className="h-6 w-6 animate-spin text-primary/50" />
+            <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold animate-pulse">Syncing chats</span>
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-24 text-center px-4">
-            <span className="text-sm font-medium text-slate-500">No conversations found</span>
-            <p className="text-xs text-slate-600 mt-1 max-w-xs">
+            <span className="text-sm font-medium text-text-secondary">No conversations found</span>
+            <p className="text-xs text-text-secondary/70 mt-1 max-w-xs">
               {searchQuery ? 'Try matching username or display name' : 'Click the button below to start a chat.'}
             </p>
           </div>
@@ -345,12 +362,12 @@ export default function LeftPanel() {
                 onClick={() => router.push(`/chat/${conv.conversationId}`)}
                 className={`relative flex w-full items-center space-x-3 rounded-xl px-3 py-3 mt-1.5 transition-all text-left ${
                   isActive 
-                    ? 'bg-[#151D30] border border-slate-800/80 shadow-md shadow-black/10' 
-                    : 'bg-transparent border border-transparent hover:bg-slate-900/60'
+                    ? 'bg-card-bg border border-border-primary shadow-sm' 
+                    : 'bg-transparent border border-transparent hover:bg-card-bg/55'
                 }`}
               >
                 {/* Recipient Avatar */}
-                <div className="relative h-11 w-11 shrink-0 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
+                <div className="relative h-11 w-11 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
                   {conv.recipient.photoURL ? (
                     <img 
                       src={conv.recipient.photoURL} 
@@ -358,28 +375,28 @@ export default function LeftPanel() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-sm font-semibold text-slate-300">{initials}</span>
+                    <span className="text-sm font-semibold text-text-secondary">{initials}</span>
                   )}
                   
                   {/* Status Indicator Dot */}
                   {conv.recipient.status === 'online' && (
-                    <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border border-[#0B0F19] bg-emerald-500"></span>
+                    <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border border-surface bg-success"></span>
                   )}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-semibold text-white">
+                    <span className="truncate text-sm font-semibold text-text-primary">
                       {conv.recipient.displayName}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-text-secondary">
                       {formatTime(conv.updatedAt)}
                     </span>
                   </div>
                   
                   <div className="flex items-center justify-between mt-0.5">
-                    <p className="truncate text-xs text-slate-400">
+                    <p className="truncate text-xs text-text-secondary">
                       {conv.lastSenderId === user?.uid ? 'You: ' : ''}{conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>
@@ -393,7 +410,7 @@ export default function LeftPanel() {
       {/* Floating Action Button '+' */}
       <button 
         onClick={() => router.push('/new-chat')}
-        className="absolute bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-0.5 transition-all duration-150 cursor-pointer active:translate-y-0 active:scale-95"
+        className="absolute bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg hover:bg-primary-hover hover:-translate-y-0.5 transition-all duration-150 cursor-pointer active:translate-y-0 active:scale-95"
         title="Start New Chat"
       >
         <Plus className="h-6 w-6" />
