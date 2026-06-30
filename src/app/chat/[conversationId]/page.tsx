@@ -7,6 +7,7 @@ import { auth, db, storage } from '@/lib/firebase';
 import { ref, onValue, push, update, get, set } from 'firebase/database';
 import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import LeftPanel from '@/components/LeftPanel';
+import EmojiPicker from '@/components/EmojiPicker';
 import {
   ChevronLeft, Send, Smile, Paperclip, MoreVertical, ShieldAlert,
   Image as ImageIcon, File as FileIcon, X, RefreshCw
@@ -51,8 +52,28 @@ export default function ChatDetailPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const initialScrollDoneRef = useRef(false);
+  const prevMessagesLengthRef = useRef(0);
 
   const emojiList = ['😀', '😂', '😍', '👍', '🔥', '🚀', '🎉', '❤️', '😭', '😊', '👏', '🤔', '👀', '✨', '💯', '👋'];
+
+  // Helper to scroll to the very bottom
+  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
+  };
+
+  // Check if scroll position is within 150px of the bottom
+  const isNearBottom = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const threshold = 150;
+    return (
+      container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+    );
+  };
 
   // Handle click outside to close emoji picker
   useEffect(() => {
@@ -65,14 +86,80 @@ export default function ChatDetailPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Scroll to bottom on new messages
+  // Smart scroll logic: handles initial loading and incoming/outgoing messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length === 0) return;
+
+    // 1. Initial Load: instantly scroll to bottom
+    if (!initialScrollDoneRef.current) {
+      setTimeout(() => {
+        scrollToBottom('auto');
+      }, 50);
+      initialScrollDoneRef.current = true;
+    } else if (messages.length > prevMessagesLengthRef.current) {
+      // 2. New message added
+      const lastMessage = messages[messages.length - 1];
+      const isMe = lastMessage?.senderId === user?.uid;
+
+      if (isMe || isNearBottom()) {
+        setTimeout(() => {
+          scrollToBottom('smooth');
+        }, 50);
+      }
+    }
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages, user?.uid]);
+
+  // Sync layout dimensions to Visual Viewport (exact WhatsApp keyboard shifting)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handler = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+
+      const wrapper = document.getElementById('chat-right-panel-wrapper');
+      if (wrapper) {
+        wrapper.style.height = `${viewport.height}px`;
+        wrapper.style.transform = `translateY(${viewport.offsetTop}px)`;
+      }
+
+      // Reset document scroll to prevent header from scrolling off-screen on iOS Safari
+      window.scrollTo(0, 0);
+
+      // Keep scrolled to bottom if user was already at/near the bottom (wait for layout finish)
+      setTimeout(() => {
+        if (isNearBottom()) {
+          scrollToBottom('auto');
+        }
+      }, 50);
+    };
+
+    // Global scroll listener block to prevent document scrolling on mobile focus
+    const handleScrollEvent = () => {
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handler);
+    window.visualViewport.addEventListener('scroll', handler);
+    window.addEventListener('scroll', handleScrollEvent, { passive: true });
+
+    // Run initial viewport alignment
+    handler();
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handler);
+      window.visualViewport?.removeEventListener('scroll', handler);
+      window.removeEventListener('scroll', handleScrollEvent);
+    };
   }, [messages]);
 
   // Fetch Conversation metadata and Recipient details
   useEffect(() => {
     if (!user || !conversationId) return;
+    initialScrollDoneRef.current = false;
 
     // Get the conversation metadata to find participants
     const convRef = ref(db, `conversations/${conversationId}`);
@@ -422,7 +509,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden">
+      <div id="chat-right-panel-wrapper" className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden">
         <div className="flex flex-col flex-1 h-full max-h-full bg-surface border-none overflow-hidden shadow-none">
 
           {/* Error Alert Banner */}
@@ -504,7 +591,7 @@ export default function ChatDetailPage() {
           </div>
 
           {/* Message History */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6 lg:px-8 lg:py-7 space-y-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6 lg:px-8 lg:py-7 space-y-4">
             {loadingMessages ? (
               <div className="flex flex-col items-center justify-center h-full space-y-3">
                 <RefreshCw className="h-7 w-7 animate-spin text-primary/50" />
@@ -577,32 +664,10 @@ export default function ChatDetailPage() {
 
                 {/* Emoji Picker */}
                 {showEmojiPicker && (
-                  <div
-                    className="
-            absolute bottom-12 left-0
-            w-56 sm:w-64
-            rounded-2xl
-            border border-border-primary
-            bg-card-bg
-            p-2
-            shadow-xl
-            z-20
-            grid grid-cols-6
-            gap-1.5
-            animate-in fade-in slide-in-from-bottom-2 duration-200
-          "
-                  >
-                    {emojiList.map((emo) => (
-                      <button
-                        key={emo}
-                        type="button"
-                        onClick={() => handleEmojiClick(emo)}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl text-lg hover:bg-surface transition-all duration-150 cursor-pointer"
-                      >
-                        {emo}
-                      </button>
-                    ))}
-                  </div>
+                  <EmojiPicker
+                    onSelect={handleEmojiClick}
+                    onClose={() => setShowEmojiPicker(false)}
+                  />
                 )}
               </div>
 
