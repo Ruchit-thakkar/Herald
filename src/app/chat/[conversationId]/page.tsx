@@ -414,7 +414,7 @@ export default function ChatDetailPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-background text-text-primary overflow-hidden">
+    <div className="fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-screen bg-background text-text-primary overflow-hidden select-none">
 
       {/* Left Panel - Hidden on mobile when viewing a conversation */}
       <div className="hidden md:block md:w-[400px] shrink-0 h-full relative">
@@ -422,8 +422,8 @@ export default function ChatDetailPage() {
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div className="flex flex-col flex-1 h-full bg-background relative p-0 md:p-0">
-        <div className="flex flex-col flex-1 h-full bg-surface rounded-[20px] md:rounded-none border border-border-primary/50 md:border-none overflow-hidden shadow-sm md:shadow-none">
+      <div className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden">
+        <div className="flex flex-col flex-1 h-full max-h-full bg-surface border-none overflow-hidden shadow-none">
 
           {/* Error Alert Banner */}
           {errorBanner && (
@@ -624,7 +624,7 @@ export default function ChatDetailPage() {
         bg-background
         px-4 sm:px-5
         py-2.5
-        text-sm
+        text-base md:text-sm
         text-text-primary
         placeholder:text-text-secondary/50
         outline-none
