@@ -35,6 +35,7 @@ export default function LeftPanel() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(true);
   
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,7 +49,12 @@ export default function LeftPanel() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Fetch conversations and recipient details in real time
@@ -204,20 +210,34 @@ export default function LeftPanel() {
       .slice(0, 2);
   };
 
-  // Profile avatar trigger logic for click/hover
+  // Profile avatar trigger logic for click/hover with close delay hold (2s-3s)
   const handleAvatarClick = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
     setIsMenuOpen(!isMenuOpen);
   };
 
   const handleAvatarMouseEnter = () => {
     if (window.innerWidth >= 768) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
       setIsMenuOpen(true);
     }
   };
 
   const handleAvatarMouseLeave = () => {
     if (window.innerWidth >= 768) {
-      setIsMenuOpen(false);
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      // Hold open for 2.5 seconds before closing
+      hoverTimeoutRef.current = setTimeout(() => {
+        setIsMenuOpen(false);
+      }, 1000);
     }
   };
 
@@ -227,7 +247,7 @@ export default function LeftPanel() {
       <div className="relative flex h-16 items-center justify-between px-5 border-b border-slate-900">
         <div className="flex items-center space-x-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-sm">
-            <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
+            <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
           <span className="text-lg font-bold tracking-tight text-gradient">Herald</span>
         </div>

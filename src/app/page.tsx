@@ -12,7 +12,7 @@ export default function RootGatewayPage() {
       <div className="flex flex-col items-center space-y-4">
         {/* Brand Logo Animation */}
         <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-xl shadow-emerald-500/20 animate-pulse bg-slate-900 border border-slate-800">
-          <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
+          <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
         </div>
         
         <h1 className="text-xl font-bold tracking-tight text-gradient">Herald</h1>

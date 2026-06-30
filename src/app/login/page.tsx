@@ -65,7 +65,7 @@ export default function LoginPage() {
         {/* Brand Header */}
         <div className="flex flex-col items-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-lg shadow-emerald-500/10">
-            <img src="https://ik.imagekit.io/devnext/Harald" alt="Herald Logo" className="h-full w-full object-cover" />
+            <img src="https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464" alt="Herald Logo" className="h-full w-full object-cover" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-white text-gradient">
             Welcome Back

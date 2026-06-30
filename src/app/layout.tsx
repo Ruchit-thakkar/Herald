@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "Herald",
   description: "Secure Authentication MVP",
   icons: {
-    icon: "https://ik.imagekit.io/devnext/Harald",
+    icon: "https://ik.imagekit.io/devnext/Harald%20?updatedAt=1782817476464",
   }
 };
 
