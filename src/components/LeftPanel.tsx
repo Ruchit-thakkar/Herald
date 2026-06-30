@@ -258,7 +258,7 @@ export default function LeftPanel() {
           {/* Theme Toggle Button */}
           <button 
             onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:border-text-secondary active:scale-95 transition-all cursor-pointer"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:border-text-secondary cursor-pointer hover-scale"
             title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
             {theme === 'dark' ? (
@@ -277,7 +277,7 @@ export default function LeftPanel() {
         >
           <button 
             onClick={handleAvatarClick}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border-primary hover:border-primary overflow-hidden cursor-pointer transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface border border-border-primary hover:border-primary overflow-hidden cursor-pointer hover-scale"
           >
             {profile?.photoURL ? (
               <img 
@@ -294,25 +294,25 @@ export default function LeftPanel() {
 
           {/* Hover/Click Dropdown Menu */}
           {isMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border-primary bg-card-bg p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-border-primary/60 bg-card-bg/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
               <button 
                 onClick={() => { router.push('/profile'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
               >
                 <UserIcon className="h-4.5 w-4.5 text-text-secondary" />
                 <span>Profile</span>
               </button>
               <button 
                 onClick={() => { router.push('/settings'); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-text-primary transition-all duration-200 text-left cursor-pointer hover:pl-4"
               >
                 <SettingsIcon className="h-4.5 w-4.5 text-text-secondary" />
                 <span>Settings</span>
               </button>
-              <div className="my-1 border-t border-border-primary"></div>
+              <div className="my-1 border-t border-border-primary/60"></div>
               <button 
                 onClick={() => { logout(); setIsMenuOpen(false); }}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-3 py-2.5 text-sm text-error hover:bg-error/10 hover:text-error transition-colors text-left"
+                className="flex w-full items-center space-x-2.5 rounded-xl px-3 py-2.5 text-sm text-error hover:bg-error/10 hover:text-error transition-all duration-200 text-left cursor-pointer hover:pl-4"
               >
                 <LogOut className="h-4.5 w-4.5 text-error" />
                 <span>Logout</span>
@@ -332,7 +332,7 @@ export default function LeftPanel() {
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border-primary bg-background py-2 pl-9 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+            className="w-full rounded-xl border border-border-primary bg-background py-2 pl-9 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
           />
         </div>
       </div>
@@ -360,10 +360,10 @@ export default function LeftPanel() {
               <button
                 key={conv.conversationId}
                 onClick={() => router.push(`/chat/${conv.conversationId}`)}
-                className={`relative flex w-full items-center space-x-3 rounded-xl px-3 py-3 mt-1.5 transition-all text-left ${
+                className={`relative flex w-full items-center space-x-3 rounded-2xl px-3.5 py-3 mt-1.5 transition-all duration-200 text-left border cursor-pointer ${
                   isActive 
-                    ? 'bg-card-bg border border-border-primary shadow-sm' 
-                    : 'bg-transparent border border-transparent hover:bg-card-bg/55'
+                    ? 'bg-card-bg border-border-primary shadow-sm' 
+                    : 'bg-transparent border-transparent hover:bg-card-bg/40 hover:border-border-primary/20'
                 }`}
               >
                 {/* Recipient Avatar */}
@@ -410,7 +410,7 @@ export default function LeftPanel() {
       {/* Floating Action Button '+' */}
       <button 
         onClick={() => router.push('/new-chat')}
-        className="absolute bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg hover:bg-primary-hover hover:-translate-y-0.5 transition-all duration-150 cursor-pointer active:translate-y-0 active:scale-95"
+        className="absolute bottom-5 right-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 cursor-pointer hover-scale"
         title="Start New Chat"
       >
         <Plus className="h-6 w-6" />

@@ -54,9 +54,13 @@
   --color-error: var(--error);
 }
 
-/* Global Transitions for color switches */
+/* Global Transitions for color switches and interactive components */
 body, div, header, footer, nav, aside, section, main, button, input, textarea, select, a, span, p, h1, h2, h3, h4, h5, h6 {
-  transition: background-color 250ms ease-out, border-color 250ms ease-out, color 250ms ease-out;
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
+              color 250ms cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -66,10 +70,24 @@ body {
   overflow-x: hidden;
 }
 
+/* Reusable tactile click feedback */
+.hover-scale {
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), 
+              background-color 250ms ease-out, 
+              border-color 250ms ease-out, 
+              box-shadow 250ms ease-out;
+}
+.hover-scale:hover {
+  transform: translateY(-1px) scale(1.015);
+}
+.hover-scale:active {
+  transform: translateY(0) scale(0.985);
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -77,19 +95,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(100, 116, 139, 0.2);
   border-radius: 9999px;
+  transition: background 250ms ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: rgba(100, 116, 139, 0.4);
 }
 
-/* Custom Utilities */
+/* Glassmorphism panel styling */
 .glass {
-  background: rgba(var(--surface), 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .text-gradient {
@@ -99,5 +118,5 @@ body {
 }
 
 .primary-glow {
-  box-shadow: 0 0 20px rgba(var(--primary), 0.15);
+  box-shadow: 0 0 25px rgba(var(--primary), 0.12);
 }

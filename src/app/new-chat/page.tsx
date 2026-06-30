@@ -188,7 +188,7 @@ export default function NewChatPage() {
         <div className="flex items-center justify-between pb-2">
           <button 
             onClick={() => router.back()}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-primary text-text-secondary hover:text-text-primary transition-colors cursor-pointer hover-scale"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -201,7 +201,7 @@ export default function NewChatPage() {
         {/* Card Panel */}
         <div className="rounded-2xl border border-border-primary bg-card-bg p-6 md:p-8 shadow-2xl backdrop-blur-md">
           {errorMessage && (
-            <div className="mb-6 rounded-lg bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
+            <div className="mb-6 rounded-xl bg-error/10 border border-error/20 p-3.5 text-sm text-error flex items-start space-x-2">
               <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
@@ -223,14 +223,14 @@ export default function NewChatPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="search by username (e.g. ruchit)"
-                    className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-8 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+                    className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-8 pr-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                     required
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={searching || !searchQuery.trim()}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer hover-scale"
                 >
                   {searching ? (
                     <RefreshCw className="h-5 w-5 animate-spin" />
@@ -254,12 +254,12 @@ export default function NewChatPage() {
                 <span className="text-xs text-text-secondary font-medium">Initializing secure chat...</span>
               </div>
             ) : results.length > 0 ? (
-              <div className="divide-y divide-border-primary overflow-hidden rounded-xl border border-border-primary bg-background">
+              <div className="divide-y divide-border-primary/60 overflow-hidden rounded-2xl border border-border-primary bg-background shadow-inner">
                 {results.map((target) => (
                   <button
                     key={target.uid}
                     onClick={() => handleStartChat(target)}
-                    className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-surface text-left transition-colors cursor-pointer group"
+                    className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-surface/50 text-left transition-all duration-200 cursor-pointer group"
                   >
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className="h-10 w-10 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
@@ -281,7 +281,7 @@ export default function NewChatPage() {
                       </div>
                     </div>
                     
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary group-hover:text-primary group-hover:border-primary transition-all">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border-primary text-text-secondary group-hover:text-primary group-hover:border-primary group-hover:scale-105 transition-all">
                       <MessageSquarePlus className="h-4.5 w-4.5" />
                     </div>
                   </button>

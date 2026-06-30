@@ -10,7 +10,7 @@ import { User as UserIcon, ArrowRight, RefreshCw, CheckCircle, AlertTriangle } f
 
 export default function SetupUsernamePage() {
   const router = useRouter();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, logout } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -210,16 +210,8 @@ export default function SetupUsernamePage() {
     setUsernameError('');
   };
 
-  const handleLogout = async () => {
-    setLoading(true);
-    try {
-      await signOut(auth);
-      router.replace('/login');
-    } catch (e) {
-      console.error('Signout error:', e);
-    } finally {
-      setLoading(false);
-    }
+  const handleLogout = () => {
+    logout();
   };
 
   if (!user || profile) {
@@ -283,7 +275,7 @@ export default function SetupUsernamePage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Ruchit Thakkar"
-                className="block w-full rounded-lg border border-border-primary bg-background py-3.5 px-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+                className="block w-full rounded-xl border border-border-primary bg-background py-3.5 px-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                 required
               />
             </div>
@@ -306,7 +298,7 @@ export default function SetupUsernamePage() {
                     checkUsernameAvailability(cleanVal);
                   }}
                   placeholder="ruchit"
-                  className="block w-full rounded-lg border border-border-primary bg-background py-3.5 pl-8 pr-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-8 pr-4 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -328,7 +320,7 @@ export default function SetupUsernamePage() {
             )}
 
             {usernameError && (
-              <div className="rounded-lg bg-error/10 border border-error/20 p-3 text-xs text-error flex items-start space-x-2">
+              <div className="rounded-xl bg-error/10 border border-error/20 p-3 text-xs text-error flex items-start space-x-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{usernameError}</span>
               </div>
@@ -344,7 +336,7 @@ export default function SetupUsernamePage() {
                       key={sugg}
                       type="button"
                       onClick={() => handleSuggestionClick(sugg)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all duration-150 cursor-pointer ${
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all duration-150 cursor-pointer hover-scale ${
                         username === sugg
                           ? 'bg-primary/20 border-primary text-primary'
                           : 'bg-background border-border-primary text-text-secondary hover:border-text-secondary hover:text-text-primary'
@@ -361,7 +353,7 @@ export default function SetupUsernamePage() {
             <button
               type="submit"
               disabled={saving || loading || usernameStatus !== 'available' || !displayName.trim()}
-              className="flex w-full justify-center rounded-lg bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md"
+              className="flex w-full justify-center rounded-xl bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md cursor-pointer hover-scale"
             >
               {saving ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />

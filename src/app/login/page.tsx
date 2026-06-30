@@ -97,7 +97,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="block w-full rounded-lg border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full rounded-lg border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                  className="block w-full rounded-xl border border-border-primary bg-background py-3.5 pl-10 pr-3 text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -127,7 +127,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full justify-center rounded-lg bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md"
+              className="flex w-full justify-center rounded-xl bg-primary hover:bg-primary-hover px-4 py-3.5 text-sm font-semibold text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md cursor-pointer hover-scale"
             >
               {loading ? (
                 <RefreshCw className="h-5 w-5 animate-spin" />
@@ -153,7 +153,7 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="flex w-full justify-center items-center rounded-lg border border-border-primary bg-background hover:bg-surface px-4 py-3.5 text-sm font-semibold text-text-primary focus:outline-none disabled:opacity-50 transition-all duration-200 cursor-pointer"
+            className="flex w-full justify-center items-center rounded-xl border border-border-primary bg-background hover:bg-surface px-4 py-3.5 text-sm font-semibold text-text-primary focus:outline-none disabled:opacity-50 transition-all duration-200 cursor-pointer hover-scale"
           >
             <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

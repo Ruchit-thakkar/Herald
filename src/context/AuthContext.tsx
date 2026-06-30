@@ -5,6 +5,8 @@ import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get, child, onValue, onDisconnect, set, serverTimestamp } from 'firebase/database';
 import { auth, db } from '@/lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
+import { CheckCircle } from 'lucide-react';
+import LogoutModal from '@/components/LogoutModal';
 
 export interface UserProfile {
   uid: string;
@@ -22,7 +24,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  logout: () => Promise<void>;
+  logout: () => void;
   refreshProfile: () => Promise<UserProfile | null>;
 }
 
@@ -30,7 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
-  logout: async () => {},
+  logout: () => {},
   refreshProfile: async () => null,
 });
 
@@ -40,6 +42,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [showLogoutToast, setShowLogoutToast] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -65,18 +69,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return p;
   };
 
-  const logout = async () => {
-    setLoading(true);
+  const performLogout = async () => {
     try {
       await signOut(auth);
       setUser(null);
       setProfile(null);
+      setIsLogoutModalOpen(false);
+      setShowLogoutToast(true);
+      setTimeout(() => setShowLogoutToast(false), 3000);
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const logout = () => {
+    setIsLogoutModalOpen(true);
   };
 
   useEffect(() => {
@@ -171,6 +179,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider value={{ user, profile, loading, logout, refreshProfile }}>
       {children}
+      <LogoutModal 
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={performLogout}
+      />
+      {showLogoutToast && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center space-x-2 rounded-xl bg-success/15 border border-success/30 px-4 py-3 text-sm font-semibold text-success shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle className="h-5 w-5 text-success" />
+          <span>Logged out successfully.</span>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

@@ -335,7 +335,7 @@ export default function ChatDetailPage() {
             {/* Back Button (Mobile only) */}
             <button 
               onClick={() => router.push('/home')}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary active:scale-95 transition-all"
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -370,7 +370,7 @@ export default function ChatDetailPage() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-surface text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-surface text-text-secondary hover:text-text-primary cursor-pointer hover-scale">
               <MoreVertical className="h-5 w-5" />
             </button>
           </div>
@@ -466,8 +466,8 @@ export default function ChatDetailPage() {
 
         {/* Attachment Upload State Overlay */}
         {uploading && (
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in">
-            <div className="flex flex-col items-center space-y-3 bg-card-bg border border-border-primary p-6 rounded-2xl shadow-2xl">
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-md flex items-center justify-center z-10 animate-fade-in">
+            <div className="flex flex-col items-center space-y-3 bg-card-bg/95 border border-border-primary p-6 rounded-2xl shadow-2xl backdrop-blur-md">
               <RefreshCw className="h-7 w-7 animate-spin text-primary" />
               <span className="text-xs font-bold text-text-primary tracking-widest uppercase">Uploading Attachment</span>
             </div>
@@ -488,7 +488,7 @@ export default function ChatDetailPage() {
             <button 
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary hover:border-text-secondary text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
               title="Attach Image/File"
             >
               <Paperclip className="h-4.5 w-4.5" />
@@ -499,10 +499,10 @@ export default function ChatDetailPage() {
               <button 
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border cursor-pointer hover-scale ${
                   showEmojiPicker 
                     ? 'bg-primary/10 border-primary text-primary' 
-                    : 'bg-background border-border-primary text-text-secondary hover:border-text-secondary hover:text-text-primary'
+                    : 'bg-background border-border-primary text-text-secondary hover:text-text-primary'
                 }`}
                 title="Add Emoji"
               >
@@ -511,13 +511,13 @@ export default function ChatDetailPage() {
 
               {/* Popover Emoji Panel */}
               {showEmojiPicker && (
-                <div className="absolute bottom-12 left-0 w-64 rounded-xl border border-border-primary bg-card-bg p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="absolute bottom-12 left-0 w-64 rounded-2xl border border-border-primary bg-card-bg/95 p-2.5 shadow-2xl backdrop-blur-md z-20 grid grid-cols-6 gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   {emojiList.map((emo) => (
                     <button
                       key={emo}
                       type="button"
                       onClick={() => handleEmojiClick(emo)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-surface active:scale-90 transition-all cursor-pointer"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-surface transition-all cursor-pointer hover-scale"
                     >
                       {emo}
                     </button>
@@ -532,14 +532,14 @@ export default function ChatDetailPage() {
               placeholder="Type a message..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="flex-1 rounded-xl border border-border-primary bg-background py-2.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary transition-colors"
+              className="flex-1 rounded-xl border border-border-primary bg-background py-2.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
             />
 
             {/* Send Action */}
             <button 
               type="submit"
               disabled={sending || !inputText.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover-scale"
             >
               <Send className="h-4.5 w-4.5" />
             </button>
