@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Herald",
   description: "Secure Authentication MVP",
+  icons: {
+    icon: "https://ik.imagekit.io/devnext/Harald",
+  }
 };
 
 export default function RootLayout({
