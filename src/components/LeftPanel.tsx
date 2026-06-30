@@ -360,14 +360,14 @@ export default function LeftPanel() {
               <button
                 key={conv.conversationId}
                 onClick={() => router.push(`/chat/${conv.conversationId}`)}
-                className={`relative flex w-full items-center space-x-3 rounded-2xl px-3.5 py-3 mt-1.5 transition-all duration-200 text-left border cursor-pointer ${
+                className={`relative flex w-full items-center space-x-3.5 rounded-2xl px-4 py-3.5 mt-2 transition-all duration-200 text-left border cursor-pointer ${
                   isActive 
-                    ? 'bg-card-bg border-border-primary shadow-sm' 
+                    ? 'bg-card-bg border-border-primary/80 shadow-md shadow-slate-100/10' 
                     : 'bg-transparent border-transparent hover:bg-card-bg/40 hover:border-border-primary/20'
                 }`}
               >
                 {/* Recipient Avatar */}
-                <div className="relative h-11 w-11 shrink-0 rounded-full bg-surface border border-border-primary overflow-hidden flex items-center justify-center">
+                <div className="relative h-12 w-12 shrink-0 rounded-full bg-surface border border-border-primary/60 overflow-hidden flex items-center justify-center">
                   {conv.recipient.photoURL ? (
                     <img 
                       src={conv.recipient.photoURL} 
@@ -380,23 +380,23 @@ export default function LeftPanel() {
                   
                   {/* Status Indicator Dot */}
                   {conv.recipient.status === 'online' && (
-                    <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border border-surface bg-success"></span>
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-surface bg-success"></span>
                   )}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-semibold text-text-primary">
+                    <span className="truncate text-sm font-bold text-text-primary">
                       {conv.recipient.displayName}
                     </span>
-                    <span className="text-[10px] text-text-secondary">
+                    <span className="text-[10px] text-text-secondary font-medium tracking-tight">
                       {formatTime(conv.updatedAt)}
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between mt-0.5">
-                    <p className="truncate text-xs text-text-secondary">
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="truncate text-xs text-text-secondary/90 flex-1 mr-2">
                       {conv.lastSenderId === user?.uid ? 'You: ' : ''}{conv.lastMessage || 'No messages yet'}
                     </p>
                   </div>

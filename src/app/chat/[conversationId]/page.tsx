@@ -307,6 +307,113 @@ export default function ChatDetailPage() {
     return `Last seen ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
   };
 
+  // Helper to render messages with date separators and grouping
+  const renderMessages = () => {
+    let lastDateStr = '';
+    return messages.map((msg, index) => {
+      const isMe = msg.senderId === user?.uid;
+      const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      // Date separator logic
+      const msgDate = new Date(msg.timestamp);
+      const dateStr = msgDate.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+      let showDateSeparator = false;
+      if (dateStr !== lastDateStr) {
+        showDateSeparator = true;
+        lastDateStr = dateStr;
+      }
+
+      let separatorText = dateStr;
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      if (msgDate.toDateString() === today.toDateString()) {
+        separatorText = 'Today';
+      } else if (msgDate.toDateString() === yesterday.toDateString()) {
+        separatorText = 'Yesterday';
+      }
+
+      // Message grouping logic
+      const prevMsg = index > 0 ? messages[index - 1] : null;
+      const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
+      const isCloseTime = prevMsg && (msg.timestamp - prevMsg.timestamp < 2 * 60 * 1000); // 2 minutes
+      const isGrouped = isSameSender && isCloseTime && !showDateSeparator;
+
+      return (
+        <React.Fragment key={msg.messageId}>
+          {showDateSeparator && (
+            <div className="flex justify-center my-6 animate-fade-in select-none">
+              <span className="rounded-full bg-surface border border-border-primary/80 px-3.5 py-1 text-xs font-semibold text-text-secondary/90 shadow-sm">
+                {separatorText}
+              </span>
+            </div>
+          )}
+          
+          <div 
+            className={`flex w-full transition-all duration-150 ${isGrouped ? 'mt-1' : 'mt-4'}`}
+            style={{ justifyContent: isMe ? 'flex-end' : 'flex-start' }}
+          >
+            <div className="flex flex-col space-y-1.5 max-w-[75%]">
+              <div 
+                className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${
+                  isMe 
+                    ? 'bg-primary text-white rounded-br-sm font-normal' 
+                    : 'bg-surface text-text-primary rounded-bl-sm border border-border-primary/55'
+                }`}
+              >
+                {/* Render Image Message */}
+                {msg.type === 'image' && (
+                  <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-border-primary/50">
+                    <img 
+                      src={msg.text} 
+                      alt="Attachment" 
+                      className="max-h-60 object-contain hover:opacity-90 transition-opacity cursor-pointer"
+                      onClick={() => window.open(msg.text, '_blank')}
+                    />
+                  </div>
+                )}
+
+                {/* Render File Message */}
+                {msg.type === 'file' && (
+                  <div className={`flex items-center space-x-3 p-2.5 rounded-lg mb-1 max-w-full ${isMe ? 'bg-white/10' : 'bg-background border border-border-primary'}`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMe ? 'bg-white/10 text-white' : 'bg-surface text-primary'}`}>
+                      <FileIcon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-xs font-semibold leading-tight ${isMe ? 'text-white' : 'text-text-primary'}`}>
+                        {msg.fileName || 'Attached File'}
+                      </p>
+                      <a 
+                        href={msg.text} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className={`text-[10px] underline font-semibold mt-1 inline-block ${isMe ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-primary-hover'}`}
+                      >
+                        Download File
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Render Text Message */}
+                {msg.type === 'text' && (
+                  <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
+                    {msg.text}
+                  </p>
+                )}
+              </div>
+
+              {/* Timestamp Info - Rendered Below the Bubble */}
+              <div className={`flex w-full ${isMe ? 'justify-end pr-1.5' : 'justify-start pl-1.5'} text-[10px] text-text-secondary/65 font-medium`}>
+                <span>{formattedTime}</span>
+              </div>
+            </div>
+          </div>
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
     <div className="flex h-screen w-screen bg-background text-text-primary overflow-hidden">
       
@@ -394,72 +501,7 @@ export default function ChatDetailPage() {
               </p>
             </div>
           ) : (
-            messages.map((msg) => {
-              const isMe = msg.senderId === user?.uid;
-              const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-              return (
-                <div 
-                  key={msg.messageId}
-                  className="flex w-full mt-1.5 transition-all duration-150"
-                  style={{ justifyContent: isMe ? 'flex-end' : 'flex-start' }}
-                >
-                  <div 
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${
-                      isMe 
-                        ? 'bg-primary text-white rounded-br-none font-medium' 
-                        : 'bg-surface text-text-primary rounded-bl-none border border-border-primary'
-                    }`}
-                  >
-                    {/* Render Image Message */}
-                    {msg.type === 'image' && (
-                      <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-border-primary/50">
-                        <img 
-                          src={msg.text} 
-                          alt="Attachment" 
-                          className="max-h-60 object-contain hover:opacity-90 transition-opacity cursor-pointer"
-                          onClick={() => window.open(msg.text, '_blank')}
-                        />
-                      </div>
-                    )}
-
-                    {/* Render File Message */}
-                    {msg.type === 'file' && (
-                      <div className={`flex items-center space-x-3 p-2.5 rounded-lg mb-1 max-w-full ${isMe ? 'bg-white/10' : 'bg-background border border-border-primary'}`}>
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMe ? 'bg-white/10 text-white' : 'bg-surface text-primary'}`}>
-                          <FileIcon className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-xs font-semibold leading-tight ${isMe ? 'text-white' : 'text-text-primary'}`}>
-                            {msg.fileName || 'Attached File'}
-                          </p>
-                          <a 
-                            href={msg.text} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className={`text-[10px] underline font-semibold mt-1 inline-block ${isMe ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-primary-hover'}`}
-                          >
-                            Download File
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Render Text Message */}
-                    {msg.type === 'text' && (
-                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
-                        {msg.text}
-                      </p>
-                    )}
-
-                    {/* Timestamp Info */}
-                    <div className={`flex items-center justify-end space-x-1.5 mt-1 text-[9px] ${isMe ? 'text-white/70' : 'text-text-secondary/70'}`}>
-                      <span>{formattedTime}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            renderMessages()
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -488,7 +530,7 @@ export default function ChatDetailPage() {
             <button 
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background border border-border-primary text-text-secondary hover:text-text-primary cursor-pointer hover-scale"
               title="Attach Image/File"
             >
               <Paperclip className="h-4.5 w-4.5" />
@@ -499,7 +541,7 @@ export default function ChatDetailPage() {
               <button 
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border cursor-pointer hover-scale ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border cursor-pointer hover-scale ${
                   showEmojiPicker 
                     ? 'bg-primary/10 border-primary text-primary' 
                     : 'bg-background border-border-primary text-text-secondary hover:text-text-primary'
@@ -511,13 +553,13 @@ export default function ChatDetailPage() {
 
               {/* Popover Emoji Panel */}
               {showEmojiPicker && (
-                <div className="absolute bottom-12 left-0 w-64 rounded-2xl border border-border-primary bg-card-bg/95 p-2.5 shadow-2xl backdrop-blur-md z-20 grid grid-cols-6 gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="absolute bottom-12 left-0 w-64 rounded-[20px] border border-border-primary bg-card-bg p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   {emojiList.map((emo) => (
                     <button
                       key={emo}
                       type="button"
                       onClick={() => handleEmojiClick(emo)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-surface transition-all cursor-pointer hover-scale"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl text-lg hover:bg-surface transition-all cursor-pointer hover-scale"
                     >
                       {emo}
                     </button>
@@ -532,14 +574,14 @@ export default function ChatDetailPage() {
               placeholder="Type a message..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="flex-1 rounded-xl border border-border-primary bg-background py-2.5 px-4 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+              className="flex-1 rounded-full border border-border-primary bg-background py-2.5 px-5 text-sm text-text-primary placeholder-text-secondary/50 outline-none hover:border-text-secondary focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
             />
 
             {/* Send Action */}
             <button 
               type="submit"
               disabled={sending || !inputText.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover-scale"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover-scale"
             >
               <Send className="h-4.5 w-4.5" />
             </button>

@@ -104,11 +104,10 @@ body {
   background: rgba(100, 116, 139, 0.4);
 }
 
-/* Glassmorphism panel styling */
+/* Flat Premium solid panel styling */
 .glass {
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .text-gradient {
