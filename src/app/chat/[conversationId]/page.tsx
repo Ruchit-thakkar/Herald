@@ -1,0 +1,551 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { auth, db, storage } from '@/lib/firebase';
+import { ref, onValue, push, update, get, set } from 'firebase/database';
+import { ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import LeftPanel from '@/components/LeftPanel';
+import { 
+  ChevronLeft, Send, Smile, Paperclip, MoreVertical, ShieldAlert,
+  Image as ImageIcon, File as FileIcon, X, RefreshCw
+} from 'lucide-react';
+
+interface Message {
+  messageId: string;
+  senderId: string;
+  text: string;
+  type: 'text' | 'image' | 'file';
+  fileName?: string;
+  timestamp: number;
+  status: 'sent' | 'delivered' | 'read';
+}
+
+interface RecipientProfile {
+  uid: string;
+  username: string;
+  displayName: string;
+  photoURL?: string | null;
+  status?: 'online' | 'offline';
+  lastSeen?: number;
+}
+
+export default function ChatDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { user, profile } = useAuth();
+  
+  const conversationId = params?.conversationId as string;
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [recipient, setRecipient] = useState<RecipientProfile | null>(null);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [errorBanner, setErrorBanner] = useState('');
+  const [conversation, setConversation] = useState<any>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiRef = useRef<HTMLDivElement>(null);
+
+  const emojiList = ['😀', '😂', '😍', '👍', '🔥', '🚀', '🎉', '❤️', '😭', '😊', '👏', '🤔', '👀', '✨', '💯', '👋'];
+
+  // Handle click outside to close emoji picker
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (emojiRef.current && !emojiRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Fetch Conversation metadata and Recipient details
+  useEffect(() => {
+    if (!user || !conversationId) return;
+
+    // Get the conversation metadata to find participants
+    const convRef = ref(db, `conversations/${conversationId}`);
+    
+    get(convRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setConversation(data);
+        const recipientUid = Object.keys(data.participants).find(uid => uid !== user.uid) || '';
+        
+        if (recipientUid) {
+          // Listen to recipient profile and presence in real-time
+          const userRef = ref(db, `users/${recipientUid}`);
+          const presenceRef = ref(db, `presence/${recipientUid}`);
+
+          const unsubUser = onValue(userRef, (userSnap) => {
+            if (userSnap.exists()) {
+              const uData = userSnap.val();
+              setRecipient(prev => ({
+                uid: recipientUid,
+                username: uData.username || 'user',
+                displayName: uData.displayName || 'Herald User',
+                photoURL: uData.photoURL || null,
+                status: prev?.status || 'offline',
+                lastSeen: uData.lastSeen || 0
+              }));
+            }
+          });
+
+          const unsubPresence = onValue(presenceRef, (presenceSnap) => {
+            const isOnline = presenceSnap.exists() && presenceSnap.val()?.online === true;
+            const lastSeenVal = presenceSnap.val()?.lastSeen || Date.now();
+            setRecipient(prev => prev ? {
+              ...prev,
+              status: isOnline ? 'online' : 'offline',
+              lastSeen: lastSeenVal
+            } : null);
+          });
+
+          return () => {
+            unsubUser();
+            unsubPresence();
+          };
+        }
+      } else {
+        // Conversation doesn't exist, go back
+        router.replace('/home');
+      }
+    }).catch(err => {
+      console.error('Error loading conversation:', err);
+      setErrorBanner('Failed to load conversation details.');
+    });
+  }, [user, conversationId, router]);
+
+  // Fetch Messages in real-time
+  useEffect(() => {
+    if (!conversationId) return;
+    setLoadingMessages(true);
+
+    const messagesRef = ref(db, `messages/${conversationId}`);
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const list = Object.keys(data).map((key) => ({
+          messageId: key,
+          ...data[key]
+        })) as Message[];
+        
+        // Sort chronologically
+        list.sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(list);
+      } else {
+        setMessages([]);
+      }
+      setLoadingMessages(false);
+    }, (error) => {
+      console.error('Error fetching messages:', error);
+      setErrorBanner('Permission denied or failed to load message history.');
+      setLoadingMessages(false);
+    });
+
+    return () => unsubscribe();
+  }, [conversationId]);
+
+  const triggerError = (msg: string) => {
+    setErrorBanner(msg);
+    setTimeout(() => {
+      setErrorBanner(prev => prev === msg ? '' : prev);
+    }, 5000);
+  };
+
+  const handleSendMessage = async (text: string, type: 'text' | 'image' | 'file' = 'text', fileName?: string) => {
+    // 1. Verify authenticated user is available before any database write
+    if (!auth.currentUser || !user || !profile || !conversationId || !recipient) return;
+
+    setSending(true);
+    try {
+      const msgRef = ref(db, `messages/${conversationId}`);
+      const newMsgRef = push(msgRef);
+
+      const msgPayload = {
+        senderId: user.uid,
+        text,
+        type,
+        timestamp: Date.now(),
+        status: 'sent' as const,
+        ...(fileName ? { fileName } : {})
+      };
+
+      const conversationMeta = {
+        participants: {
+          [user.uid]: true,
+          [recipient.uid]: true
+        },
+        type: 'direct' as const,
+        createdAt: conversation?.createdAt || Date.now(),
+        updatedAt: Date.now(),
+        lastMessage: {
+          text: type === 'text' ? text : `Sent an ${type}`,
+          senderId: user.uid,
+          timestamp: Date.now()
+        }
+      };
+
+      // 2. Write the message payload to messages list
+      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
+      console.log(`[Firebase Path] Writing message to: messages/${conversationId}/${newMsgRef.key}`);
+      await set(ref(db, `messages/${conversationId}/${newMsgRef.key}`), msgPayload);
+
+      // 3. Write to shared conversation path (atomic set with required fields)
+      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
+      console.log(`[Firebase Path] Updating conversation metadata: conversations/${conversationId}`);
+      await set(ref(db, `conversations/${conversationId}`), conversationMeta);
+
+      // 4. Write to userConversations lists (in a single atomic update)
+      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
+      console.log(`[Firebase Path] Updating userConversations for both users`);
+      const userConvUpdates: any = {};
+      userConvUpdates[`userConversations/${user.uid}/${conversationId}`] = {
+        ...conversationMeta,
+        conversationId
+      };
+      userConvUpdates[`userConversations/${recipient.uid}/${conversationId}`] = {
+        ...conversationMeta,
+        conversationId
+      };
+      await update(ref(db), userConvUpdates);
+
+      setInputText('');
+    } catch (err: any) {
+      console.error('Error sending message:', err);
+      const failPath = err?.path || `messages/${conversationId} or conversations or userConversations`;
+      console.error(`[Firebase Error] Failed message send write at path: ${failPath} for UID: ${auth.currentUser?.uid}`);
+      triggerError(`Failed to send message. Permission denied at ${failPath}.`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanText = inputText.trim();
+    if (!cleanText) return;
+    handleSendMessage(cleanText, 'text');
+  };
+
+  const handleEmojiClick = (emoji: string) => {
+    setInputText(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Handle file/image attachment uploads (supports real Firebase storage with base64 fallback)
+  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setErrorBanner('');
+
+    const isImage = file.type.startsWith('image/');
+    const fileType = isImage ? 'image' : 'file';
+
+    try {
+      // 1. Try Firebase Storage Upload
+      const storageRef = sRef(storage, `conversations/${conversationId}/${Date.now()}_${file.name}`);
+      const snap = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snap.ref);
+      await handleSendMessage(downloadURL, fileType, file.name);
+    } catch (err: any) {
+      console.warn('Firebase Storage upload failed, falling back to base64 encoding...', err);
+      
+      // 2. Fallback to Base64 in Realtime Database (with a limit check of ~2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        triggerError('File is too large. Max size is 2MB for fallback encoding.');
+        setUploading(false);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64String = event.target?.result as string;
+        if (base64String) {
+          await handleSendMessage(base64String, fileType, file.name);
+        } else {
+          triggerError('Failed to read attached file.');
+        }
+      };
+      reader.onerror = () => {
+        triggerError('Failed to read attached file.');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Helper to format presence last seen text
+  const formatLastSeen = (timestamp?: number) => {
+    if (!timestamp) return 'Offline';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
+
+    if (diffMins < 1) return 'Online';
+    if (diffMins < 60) return `Active ${diffMins}m ago`;
+    
+    // Check if today
+    if (date.toDateString() === now.toDateString()) {
+      return `Last seen today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return `Last seen ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+  };
+
+  return (
+    <div className="flex h-screen w-screen bg-[#080C14] text-white overflow-hidden">
+      
+      {/* Left Panel - Hidden on mobile when viewing a conversation */}
+      <div className="hidden md:block md:w-[400px] shrink-0 h-full relative">
+        <LeftPanel />
+      </div>
+
+      {/* Right Panel - Active Chat Screen */}
+      <div className="flex flex-col flex-1 h-full bg-[#080C14] relative">
+        
+        {/* Error Alert Banner */}
+        {errorBanner && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-red-500/10 border border-red-500/30 px-5 py-3 text-xs text-red-400 shadow-2xl backdrop-blur-md">
+            <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
+            <span className="font-semibold">{errorBanner}</span>
+            <button onClick={() => setErrorBanner('')} className="text-red-400 hover:text-white pl-2">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Chat Header */}
+        <div className="flex h-16 items-center justify-between border-b border-slate-900/80 px-4 md:px-6 bg-[#0B0F19]">
+          <div className="flex items-center space-x-3 min-w-0">
+            {/* Back Button (Mobile only) */}
+            <button 
+              onClick={() => router.push('/home')}
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white active:scale-95 transition-all"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            {/* Recipient Info */}
+            {recipient && (
+              <div className="flex items-center space-x-3 min-w-0">
+                <div className="relative h-10 w-10 shrink-0 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
+                  {recipient.photoURL ? (
+                    <img src={recipient.photoURL} alt={recipient.displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-semibold text-slate-300">
+                      {recipient.displayName
+                        ? recipient.displayName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                        : '?'}
+                    </span>
+                  )}
+                  {recipient.status === 'online' && (
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-[#0B0F19] bg-emerald-500"></span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold truncate text-white leading-tight">
+                    {recipient.displayName}
+                  </h4>
+                  <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                    {recipient.status === 'online' ? 'Online' : formatLastSeen(recipient.lastSeen)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer">
+              <MoreVertical className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Message History */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          {loadingMessages ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-3">
+              <RefreshCw className="h-7 w-7 animate-spin text-emerald-500/50" />
+              <span className="text-xs text-slate-500 font-semibold tracking-wider uppercase animate-pulse">Syncing Conversation</span>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 mb-3">
+                <Send className="h-5 w-5 rotate-45" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-400">Say Hello!</h4>
+              <p className="text-xs text-slate-500 max-w-xs mt-1">
+                This is the beginning of your conversation. Send a message to start chatting.
+              </p>
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const isMe = msg.senderId === user?.uid;
+              const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              return (
+                <div 
+                  key={msg.messageId}
+                  className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-md ${
+                      isMe 
+                        ? 'bg-emerald-500 text-white rounded-br-none font-medium' 
+                        : 'bg-[#151D30] text-slate-100 rounded-bl-none border border-slate-800/60'
+                    }`}
+                  >
+                    {/* Render Image Message */}
+                    {msg.type === 'image' && (
+                      <div className="relative rounded-lg overflow-hidden max-w-full mb-1 border border-black/10">
+                        <img 
+                          src={msg.text} 
+                          alt="Attachment" 
+                          className="max-h-60 object-contain hover:opacity-90 transition-opacity cursor-pointer"
+                          onClick={() => window.open(msg.text, '_blank')}
+                        />
+                      </div>
+                    )}
+
+                    {/* Render File Message */}
+                    {msg.type === 'file' && (
+                      <div className="flex items-center space-x-3 bg-black/15 p-2.5 rounded-lg mb-1 max-w-full">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/20 text-emerald-300">
+                          <FileIcon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-white leading-tight">
+                            {msg.fileName || 'Attached File'}
+                          </p>
+                          <a 
+                            href={msg.text} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-emerald-200 underline font-semibold mt-1 inline-block hover:text-white"
+                          >
+                            Download File
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Render Text Message */}
+                    {msg.type === 'text' && (
+                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
+                        {msg.text}
+                      </p>
+                    )}
+
+                    {/* Timestamp Info */}
+                    <div className={`flex items-center justify-end space-x-1.5 mt-1 text-[9px] ${isMe ? 'text-emerald-100/70' : 'text-slate-500'}`}>
+                      <span>{formattedTime}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Attachment Upload State Overlay */}
+        {uploading && (
+          <div className="absolute inset-0 bg-[#080C14]/60 backdrop-blur-sm flex items-center justify-center z-10 animate-fade-in">
+            <div className="flex flex-col items-center space-y-3 bg-[#0F1626] border border-slate-800 p-6 rounded-2xl shadow-2xl">
+              <RefreshCw className="h-7 w-7 animate-spin text-emerald-500" />
+              <span className="text-xs font-bold text-white tracking-widest uppercase">Uploading Attachment</span>
+            </div>
+          </div>
+        )}
+
+        {/* Input Bar Area */}
+        <div className="border-t border-slate-900/80 px-4 py-3 bg-[#0B0F19]">
+          <form onSubmit={handleTextSubmit} className="flex items-center space-x-3 relative">
+            
+            {/* Attachment Button */}
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleAttachmentChange}
+              className="hidden"
+            />
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Attach Image/File"
+            >
+              <Paperclip className="h-4.5 w-4.5" />
+            </button>
+
+            {/* Emoji Trigger */}
+            <div ref={emojiRef} className="relative">
+              <button 
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                  showEmojiPicker 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' 
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white'
+                }`}
+                title="Add Emoji"
+              >
+                <Smile className="h-4.5 w-4.5" />
+              </button>
+
+              {/* Popover Emoji Panel */}
+              {showEmojiPicker && (
+                <div className="absolute bottom-12 left-0 w-64 rounded-xl border border-slate-850 bg-[#0F1626] p-2.5 shadow-2xl z-20 grid grid-cols-6 gap-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  {emojiList.map((emo) => (
+                    <button
+                      key={emo}
+                      type="button"
+                      onClick={() => handleEmojiClick(emo)}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-slate-800 active:scale-90 transition-all cursor-pointer"
+                    >
+                      {emo}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Text Input Field */}
+            <input 
+              type="text"
+              placeholder="Type a message..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="flex-1 rounded-xl border border-slate-850 bg-[#0A0E1A] py-2.5 px-4 text-sm text-white placeholder-slate-650 outline-none hover:border-slate-800 focus:border-emerald-500 transition-colors"
+            />
+
+            {/* Send Action */}
+            <button 
+              type="submit"
+              disabled={sending || !inputText.trim()}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/10 hover:bg-emerald-600 hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <Send className="h-4.5 w-4.5" />
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  );
+}
