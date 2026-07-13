@@ -40,6 +40,49 @@ interface RecipientProfile {
   lastSeen?: number;
 }
 
+interface ViewportDimensions {
+  width: number;
+  height: number;
+  offsetTop: number;
+  scale: number;
+}
+
+// Hook to track the mobile visual viewport size and offset
+function useVisualViewport() {
+  const [viewport, setViewport] = useState<ViewportDimensions>({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+    offsetTop: 0,
+    scale: 1,
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const visualViewport = window.visualViewport;
+
+    const handleViewportChange = () => {
+      setViewport({
+        width: visualViewport.width,
+        height: visualViewport.height,
+        offsetTop: visualViewport.offsetTop,
+        scale: visualViewport.scale,
+      });
+    };
+
+    visualViewport.addEventListener('resize', handleViewportChange);
+    visualViewport.addEventListener('scroll', handleViewportChange);
+    handleViewportChange();
+
+    return () => {
+      visualViewport.removeEventListener('resize', handleViewportChange);
+      visualViewport.removeEventListener('scroll', handleViewportChange);
+    };
+  }, []);
+
+  return viewport;
+}
+
 export default function ChatDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -56,38 +99,84 @@ export default function ChatDetailPage() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [errorBanner, setErrorBanner] = useState('');
   const [conversation, setConversation] = useState<any>(null);
 
   const xhrRefs = useRef<{ [tempId: string]: XMLHttpRequest }>({});
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const initialScrollDoneRef = useRef(false);
-  const prevMessagesLengthRef = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const emojiList = ['😀', '😂', '😍', '👍', '🔥', '🚀', '🎉', '❤️', '😭', '😊', '👏', '🤔', '👀', '✨', '💯', '👋'];
 
-  // Helper to scroll to the very bottom
+  const viewport = useVisualViewport();
+
+  // Reset scroll helper
   const scrollToBottom = (behavior: 'smooth' | 'auto' = 'smooth') => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior });
     }
   };
 
-  // Check if scroll position is within 150px of the bottom
-  const isNearBottom = () => {
+  // Prevent scroll of document body when mobile virtual keyboard triggers viewport offset
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const preventDocumentScroll = () => {
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    const handleFocus = () => {
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 30);
+    };
+
+    window.addEventListener('scroll', preventDocumentScroll, { passive: true });
+    window.addEventListener('focusin', handleFocus, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', preventDocumentScroll);
+      window.removeEventListener('focusin', handleFocus);
+    };
+  }, []);
+
+  // Set up ResizeObserver on the messages inner content container.
+  // This automatically anchors scrolling when container size shifts (e.g. image loads or new messages arrive)
+  useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container) return true;
-    const threshold = 150;
-    return (
-      container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
-    );
-  };
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    let isInitial = true;
+
+    const observer = new ResizeObserver(() => {
+      if (isInitial) {
+        container.scrollTop = container.scrollHeight;
+        isInitial = false;
+        return;
+      }
+
+      // Check if user was near bottom before contents resized
+      const threshold = 200;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+
+      if (isNearBottom) {
+        // Use animation frame to avoid layout thrashing
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      }
+    });
+
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [loadingMessages]);
 
   // Handle click outside to close emoji picker
   useEffect(() => {
@@ -98,96 +187,6 @@ export default function ChatDetailPage() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Smart scroll logic: handles initial loading and incoming/outgoing messages
-  useEffect(() => {
-    if (messages.length === 0) return;
-
-    // 1. Initial Load: instantly scroll to bottom
-    if (!initialScrollDoneRef.current) {
-      setTimeout(() => {
-        scrollToBottom('auto');
-      }, 50);
-      initialScrollDoneRef.current = true;
-    } else if (messages.length > prevMessagesLengthRef.current) {
-      // 2. New message added
-      const lastMessage = messages[messages.length - 1];
-      const isMe = lastMessage?.senderId === user?.uid;
-
-      if (isMe || isNearBottom()) {
-        setTimeout(() => {
-          scrollToBottom('smooth');
-        }, 50);
-      }
-    }
-    prevMessagesLengthRef.current = messages.length;
-  }, [messages, user?.uid]);
-
-  // Sync layout dimensions to Visual Viewport (exact WhatsApp keyboard shifting)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-
-    let rAFId: number | null = null;
-    let lastHeight = 0;
-    let lastOffset = 0;
-
-    const handler = () => {
-      if (rAFId) cancelAnimationFrame(rAFId);
-
-      rAFId = requestAnimationFrame(() => {
-        const viewport = window.visualViewport;
-        if (!viewport) return;
-
-        const currentHeight = viewport.height;
-        const currentOffset = viewport.offsetTop;
-
-        // Skip writing to DOM if dimensions haven't changed meaningfully
-        if (Math.abs(currentHeight - lastHeight) < 0.5 && Math.abs(currentOffset - lastOffset) < 0.5) {
-          return;
-        }
-
-        const wrapper = document.getElementById('chat-right-panel-wrapper');
-        if (wrapper) {
-          wrapper.style.height = `${currentHeight}px`;
-          wrapper.style.transform = `translateY(${currentOffset}px)`;
-        }
-
-        lastHeight = currentHeight;
-        lastOffset = currentOffset;
-
-        // Reset document scroll to prevent Safari header shifting
-        window.scrollTo(0, 0);
-
-        // Keep scrolled to bottom if near bottom
-        if (isNearBottom()) {
-          requestAnimationFrame(() => {
-            scrollToBottom('auto');
-          });
-        }
-      });
-    };
-
-    // Global scroll listener block to prevent document scrolling on mobile focus
-    const handleScrollEvent = () => {
-      if (window.scrollY !== 0) {
-        window.scrollTo(0, 0);
-      }
-    };
-
-    window.visualViewport.addEventListener('resize', handler);
-    window.visualViewport.addEventListener('scroll', handler);
-    window.addEventListener('scroll', handleScrollEvent, { passive: true });
-
-    // Run initial viewport alignment
-    handler();
-
-    return () => {
-      if (rAFId) cancelAnimationFrame(rAFId);
-      window.visualViewport?.removeEventListener('resize', handler);
-      window.visualViewport?.removeEventListener('scroll', handler);
-      window.removeEventListener('scroll', handleScrollEvent);
-    };
   }, []);
 
   // Update receiver active conversation focus mapping
@@ -203,11 +202,8 @@ export default function ChatDetailPage() {
   // Fetch Conversation metadata and Recipient details
   useEffect(() => {
     if (!user || !conversationId) return;
-    initialScrollDoneRef.current = false;
 
-    // Get the conversation metadata to find participants
     const convRef = ref(db, `conversations/${conversationId}`);
-
     get(convRef).then((snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -215,7 +211,6 @@ export default function ChatDetailPage() {
         const recipientUid = Object.keys(data.participants).find(uid => uid !== user.uid) || '';
 
         if (recipientUid) {
-          // Listen to recipient profile and presence in real-time
           const userRef = ref(db, `users/${recipientUid}`);
           const presenceRef = ref(db, `presence/${recipientUid}`);
 
@@ -249,7 +244,6 @@ export default function ChatDetailPage() {
           };
         }
       } else {
-        // Conversation doesn't exist, go back
         router.replace('/home');
       }
     }).catch(err => {
@@ -272,7 +266,6 @@ export default function ChatDetailPage() {
           ...data[key]
         })) as Message[];
 
-        // Sort chronologically
         list.sort((a, b) => a.timestamp - b.timestamp);
         setMessages(list);
       } else {
@@ -296,7 +289,6 @@ export default function ChatDetailPage() {
   };
 
   const handleSendMessage = async (text: string, type: 'text' | 'image' | 'video' | 'file' = 'text', fileName?: string) => {
-    // 1. Verify authenticated user is available before any database write
     if (!auth.currentUser || !user || !profile || !conversationId || !recipient) return;
 
     setSending(true);
@@ -328,19 +320,9 @@ export default function ChatDetailPage() {
         }
       };
 
-      // 2. Write the message payload to messages list
-      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
-      console.log(`[Firebase Path] Writing message to: messages/${conversationId}/${newMsgRef.key}`);
       await set(ref(db, `messages/${conversationId}/${newMsgRef.key}`), msgPayload);
-
-      // 3. Write to shared conversation path (atomic set with required fields)
-      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
-      console.log(`[Firebase Path] Updating conversation metadata: conversations/${conversationId}`);
       await set(ref(db, `conversations/${conversationId}`), conversationMeta);
 
-      // 4. Write to userConversations lists (in a single atomic update)
-      console.log(`[Firebase Auth] Write initiated by auth.currentUser.uid: ${auth.currentUser.uid}`);
-      console.log(`[Firebase Path] Updating userConversations for both users`);
       const userConvUpdates: any = {};
       userConvUpdates[`userConversations/${user.uid}/${conversationId}`] = {
         ...conversationMeta,
@@ -352,7 +334,6 @@ export default function ChatDetailPage() {
       };
       await update(ref(db), userConvUpdates);
 
-      // Trigger non-blocking push notification API to recipient
       fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -368,11 +349,12 @@ export default function ChatDetailPage() {
       }).catch(err => console.error('Error calling send-push API:', err));
 
       setInputText('');
+      if (inputRef.current) {
+        inputRef.current.innerText = '';
+      }
     } catch (err: any) {
       console.error('Error sending message:', err);
-      const failPath = err?.path || `messages/${conversationId} or conversations or userConversations`;
-      console.error(`[Firebase Error] Failed message send write at path: ${failPath} for UID: ${auth.currentUser?.uid}`);
-      triggerError(`Failed to send message. Permission denied at ${failPath}.`);
+      triggerError('Failed to send message.');
     } finally {
       setSending(false);
     }
@@ -394,7 +376,6 @@ export default function ChatDetailPage() {
     if (!auth.currentUser || !user || !profile || !conversationId || !recipient) return;
 
     try {
-      // 1. Write metadata to Realtime Database message node
       const rtdbPath = `messages/${conversationId}/${messageId}`;
       const rtdbPayload = {
         senderId: user.uid,
@@ -410,7 +391,6 @@ export default function ChatDetailPage() {
       };
       await set(ref(db, rtdbPath), rtdbPayload);
 
-      // 2. Write metadata index to expiringUploads node for easy cleanup querying
       const cleanupPath = `expiringUploads/${messageId}`;
       const cleanupPayload = {
         conversationId,
@@ -421,7 +401,6 @@ export default function ChatDetailPage() {
       };
       await set(ref(db, cleanupPath), cleanupPayload);
 
-      // 3. Update Conversation Meta
       const conversationMeta = {
         participants: {
           [user.uid]: true,
@@ -438,7 +417,6 @@ export default function ChatDetailPage() {
       };
       await set(ref(db, `conversations/${conversationId}`), conversationMeta);
 
-      // 4. Update userConversations indices
       const userConvUpdates: any = {};
       userConvUpdates[`userConversations/${user.uid}/${conversationId}`] = {
         ...conversationMeta,
@@ -450,14 +428,13 @@ export default function ChatDetailPage() {
       };
       await update(ref(db), userConvUpdates);
 
-      // Trigger non-blocking push notification API to recipient for files
       fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipientId: recipient.uid,
           conversationId,
-          messageText: fileUrl, // text field for files is their URL
+          messageText: fileUrl,
           messageType: type,
           fileName: fileMetadata.fileName,
           senderName: profile.displayName || user.displayName || 'Someone',
@@ -466,51 +443,52 @@ export default function ChatDetailPage() {
       }).catch(err => console.error('Error calling send-push API for file:', err));
 
     } catch (err: any) {
-      console.error('Error saving file metadata to databases:', err);
+      console.error('Error saving file metadata:', err);
       throw err;
     }
   };
 
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanText = inputText.trim();
+    const cleanText = (inputRef.current?.innerText || '').trim();
     if (!cleanText) return;
     handleSendMessage(cleanText, 'text');
-    inputRef.current?.focus();
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
   };
 
   const handleEmojiClick = (emoji: string) => {
-    setInputText(prev => prev + emoji);
+    if (inputRef.current) {
+      inputRef.current.innerText = (inputRef.current.innerText || '') + emoji;
+      setInputText(inputRef.current.innerText);
+    }
     setShowEmojiPicker(false);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Move cursor/caret to the end of contenteditable
+        const range = document.createRange();
+        const sel = window.getSelection();
+        if (sel) {
+          range.selectNodeContents(inputRef.current);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    });
   };
 
   const validateFile = (file: File) => {
-    if (file.size === 0) {
-      return 'File is empty.';
-    }
-    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
-    if (file.size > MAX_SIZE) {
-      return 'File is too large. Maximum size allowed is 25MB.';
-    }
-    // Block executable extensions
+    if (file.size === 0) return 'File is empty.';
+    const MAX_SIZE = 25 * 1024 * 1024;
+    if (file.size > MAX_SIZE) return 'File is too large (max 25MB).';
     const blockedExtensions = ['.exe', '.bat', '.cmd', '.sh', '.msi', '.com', '.vbs', '.scr'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    if (blockedExtensions.includes(ext)) {
-      return 'Executable files are not allowed for security reasons.';
-    }
-    const blockedMimeTypes = [
-      'application/x-msdownload',
-      'application/x-sh',
-      'application/x-bash',
-      'application/x-csh',
-      'application/x-dosexec'
-    ];
-    if (blockedMimeTypes.includes(file.type)) {
-      return 'Executable files are not allowed.';
-    }
+    if (blockedExtensions.includes(ext)) return 'Executable files are not allowed.';
+    const blockedMimeTypes = ['application/x-msdownload', 'application/x-sh', 'application/x-bash', 'application/x-csh', 'application/x-dosexec'];
+    if (blockedMimeTypes.includes(file.type)) return 'Executable files are not allowed.';
     return null;
   };
 
@@ -518,21 +496,16 @@ export default function ChatDetailPage() {
     const tempId = tempMsg.messageId;
     const file = tempMsg.rawFile!;
 
-    // Set status to uploading
     setActiveUploads(prev =>
       prev.map(m => (m.messageId === tempId ? { ...m, status: 'uploading', progress: 0 } : m))
     );
 
     try {
-      // 1. Fetch upload signature from API
       const authRes = await fetch('/api/imagekit-auth');
-      if (!authRes.ok) {
-        throw new Error('Failed to get upload credentials');
-      }
+      if (!authRes.ok) throw new Error('Failed to get upload credentials');
       const authData = await authRes.json();
       const { token, expire, signature, publicKey } = authData;
 
-      // 2. Construct FormData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('fileName', file.name);
@@ -542,7 +515,6 @@ export default function ChatDetailPage() {
       formData.append('expire', expire.toString());
       formData.append('folder', 'Herald/uploads');
 
-      // 3. Upload with XMLHttpRequest to monitor progress
       const xhr = new XMLHttpRequest();
       xhrRefs.current[tempId] = xhr;
 
@@ -563,7 +535,6 @@ export default function ChatDetailPage() {
             const resData = JSON.parse(xhr.responseText);
             const { fileId, url } = resData;
 
-            // Transition upload state to sending
             setActiveUploads(prev =>
               prev.map(m => (m.messageId === tempId ? { ...m, status: 'sending', progress: 100 } : m))
             );
@@ -575,54 +546,32 @@ export default function ChatDetailPage() {
               : 'file';
 
             const uploadedAt = Date.now();
-            const expiresAt = uploadedAt + 24 * 60 * 60 * 1000; // 24 hours
+            const expiresAt = uploadedAt + 24 * 60 * 60 * 1000;
 
-            // Pre-generate the unique messageId using Realtime Database push syntax
             const finalMessageId = push(ref(db, `messages/${conversationId}`)).key || `file_${Date.now()}`;
+            const fileMetadata = { fileId, fileName: file.name, fileSize: file.size, mimeType: file.type, uploadedAt, expiresAt };
 
-            const fileMetadata = {
-              fileId,
-              fileName: file.name,
-              fileSize: file.size,
-              mimeType: file.type,
-              uploadedAt,
-              expiresAt
-            };
-
-            // Write metadata to Realtime Database
             await handleSendFileMessage(finalMessageId, url, fileType, fileMetadata);
 
-            // Complete: Remove from active uploads
             setActiveUploads(prev => prev.filter(m => m.messageId !== tempId));
             delete xhrRefs.current[tempId];
           } catch (err) {
             console.error('Error completing file metadata save:', err);
-            setActiveUploads(prev =>
-              prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
-            );
+            setActiveUploads(prev => prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m)));
           }
         } else {
-          console.error('ImageKit error response:', xhr.responseText);
-          setActiveUploads(prev =>
-            prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
-          );
+          setActiveUploads(prev => prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m)));
         }
       };
 
       xhr.onerror = () => {
-        console.error('ImageKit upload error');
-        setActiveUploads(prev =>
-          prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
-        );
+        setActiveUploads(prev => prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m)));
       };
 
       xhr.send(formData);
-
-    } catch (err: any) {
+    } catch (err) {
       console.error('Upload process crash:', err);
-      setActiveUploads(prev =>
-        prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m))
-      );
+      setActiveUploads(prev => prev.map(m => (m.messageId === tempId ? { ...m, status: 'failed' } : m)));
     }
   };
 
@@ -632,16 +581,10 @@ export default function ChatDetailPage() {
       triggerError(errorMsg);
       return;
     }
-
     if (!user || !recipient || !conversationId) return;
 
-    // Create unique temp message tracking ID
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    const fileType = file.type.startsWith('image/')
-      ? 'image'
-      : file.type.startsWith('video/')
-      ? 'video'
-      : 'file';
+    const fileType = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
 
     const tempMsg: Message = {
       messageId: tempId,
@@ -684,7 +627,50 @@ export default function ChatDetailPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Helper to format presence last seen text
+  // Intercept paste events to catch mobile keyboard GIF insertions or clipboard images
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    let filePasted = false;
+
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            filePasted = true;
+            await uploadAttachment(file);
+          }
+        }
+      }
+    }
+
+    if (!filePasted) {
+      // Prevent HTML styling injections during normal copy/paste
+      e.preventDefault();
+      const text = e.clipboardData?.getData('text/plain') || '';
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+      selection.deleteFromDocument();
+      selection.getRangeAt(0).insertNode(document.createTextNode(text));
+      if (inputRef.current) {
+        setInputText(inputRef.current.innerText || '');
+      }
+    }
+  };
+
+  // Intercept file drops on the composer
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        await uploadAttachment(files[i]);
+      }
+    }
+  };
+
   const formatLastSeen = (timestamp?: number) => {
     if (!timestamp) return 'Offline';
     const date = new Date(timestamp);
@@ -693,8 +679,6 @@ export default function ChatDetailPage() {
 
     if (diffMins < 1) return 'Online';
     if (diffMins < 60) return `Active ${diffMins}m ago`;
-
-    // Check if today
     if (date.toDateString() === now.toDateString()) {
       return `Last seen today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     }
@@ -722,7 +706,6 @@ export default function ChatDetailPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('CORS download failed, opening in new tab:', error);
       window.open(url, '_blank');
     }
   };
@@ -733,13 +716,19 @@ export default function ChatDetailPage() {
     if (diff <= 0) return 'Expired';
     const hours = Math.floor(diff / (60 * 60 * 1000));
     const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
-    if (hours > 0) {
-      return `${hours}h ${minutes}m left`;
-    }
+    if (hours > 0) return `${hours}h ${minutes}m left`;
     return `${minutes}m left`;
   };
 
-  // Memoized messages rendering to prevent expensive re-builds on input/keyboard updates
+  // Mobile layout styles based on visual viewport to prevent jumping/lag
+  const mobileChatStyle = useMemo(() => {
+    if (typeof window === 'undefined') return {};
+    return {
+      height: `${viewport.height}px`,
+      transform: `translateY(${viewport.offsetTop}px)`,
+    };
+  }, [viewport.height, viewport.offsetTop]);
+
   const renderedMessages = useMemo(() => {
     let lastDateStr = '';
     const combinedMessages = [...messages, ...activeUploads].sort((a, b) => a.timestamp - b.timestamp);
@@ -748,7 +737,6 @@ export default function ChatDetailPage() {
       const isMe = msg.senderId === user?.uid;
       const formattedTime = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-      // Date separator logic
       const msgDate = new Date(msg.timestamp);
       const dateStr = msgDate.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
       let showDateSeparator = false;
@@ -767,13 +755,11 @@ export default function ChatDetailPage() {
         separatorText = 'Yesterday';
       }
 
-      // Message grouping logic
       const prevMsg = index > 0 ? combinedMessages[index - 1] : null;
       const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
-      const isCloseTime = prevMsg && (msg.timestamp - prevMsg.timestamp < 2 * 60 * 1000); // 2 minutes
+      const isCloseTime = prevMsg && (msg.timestamp - prevMsg.timestamp < 2 * 60 * 1000);
       const isGrouped = isSameSender && isCloseTime && !showDateSeparator;
 
-      // Theme-specific styles to fit inside colored bubbles
       const textPrimaryClass = isMe ? 'text-white' : 'text-text-primary';
       const textSecondaryClass = isMe ? 'text-white/80' : 'text-text-secondary';
       const textMutedClass = isMe ? 'text-white/60' : 'text-text-secondary/70';
@@ -795,22 +781,21 @@ export default function ChatDetailPage() {
             className={`flex w-full transition-all duration-150 ${isGrouped ? 'mt-1' : 'mt-4'}`}
             style={{ justifyContent: isMe ? 'flex-end' : 'flex-start' }}
           >
-            <div className="flex flex-col space-y-1.5 max-w-[75%]">
+            <div className="flex flex-col space-y-1 max-w-[80%] sm:max-w-[70%]">
               <div
                 className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all duration-150 ${isMe
                   ? 'bg-primary text-white rounded-br-sm font-normal'
                   : 'bg-surface text-text-primary rounded-bl-sm border border-border-primary/55'
                   }`}
               >
-                {/* 1. RENDER UPLOADING STATE */}
                 {msg.status === 'uploading' && (
-                  <div className="flex flex-col space-y-2 p-1.5 w-64 md:w-72">
+                  <div className="flex flex-col space-y-2 p-1.5 w-60 sm:w-72">
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="flex items-center space-x-2">
                         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                         <span>Uploading File ({msg.progress}%)</span>
                       </span>
-                      <button 
+                      <button
                         onClick={() => handleCancelUpload(msg.messageId)}
                         className="p-1 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
                         title="Cancel Upload"
@@ -819,8 +804,8 @@ export default function ChatDetailPage() {
                       </button>
                     </div>
                     <div className="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
-                      <div 
-                        className="bg-white h-full transition-all duration-200" 
+                      <div
+                        className="bg-white h-full transition-all duration-200"
                         style={{ width: `${msg.progress}%` }}
                       ></div>
                     </div>
@@ -828,30 +813,28 @@ export default function ChatDetailPage() {
                   </div>
                 )}
 
-                {/* 2. RENDER SENDING STATE */}
                 {msg.status === 'sending' && (
-                  <div className="flex items-center space-x-2.5 p-2 w-64 md:w-72">
+                  <div className="flex items-center space-x-2.5 p-2 w-60 sm:w-72">
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span className="text-xs font-semibold">Sending metadata...</span>
+                    <span className="text-xs font-semibold">Sending...</span>
                   </div>
                 )}
 
-                {/* 3. RENDER FAILED STATE */}
                 {msg.status === 'failed' && (
-                  <div className="flex flex-col space-y-2.5 p-1.5 w-64 md:w-72">
+                  <div className="flex flex-col space-y-2 p-1.5 w-60 sm:w-72">
                     <div className="flex items-center space-x-2 text-xs font-semibold text-red-200">
                       <AlertCircle className="h-4 w-4 shrink-0" />
                       <span>Upload Failed</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <button 
+                      <button
                         onClick={() => handleRetryUpload(msg.messageId)}
                         className="px-3 py-1 bg-white/15 hover:bg-white/25 text-xs font-bold rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
                       >
                         <RefreshCw className="h-3 w-3" />
                         <span>Retry</span>
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleCancelUpload(msg.messageId)}
                         className="px-3 py-1 bg-white/5 hover:bg-white/10 text-xs font-semibold rounded-lg text-white transition-colors cursor-pointer"
                       >
@@ -862,12 +845,10 @@ export default function ChatDetailPage() {
                   </div>
                 )}
 
-                {/* 4. RENDER COMPLETED attachment states */}
                 {(msg.status === 'sent' || msg.status === 'delivered' || msg.status === 'read' || !msg.status) && (
                   <>
-                    {/* Render Image Message */}
                     {msg.type === 'image' && (
-                      <div className="flex flex-col w-64 max-w-full">
+                      <div className="flex flex-col w-60 sm:w-72 max-w-full">
                         <div className="relative rounded-xl overflow-hidden mb-1.5 border border-white/5 aspect-auto">
                           <img
                             src={msg.text}
@@ -889,16 +870,16 @@ export default function ChatDetailPage() {
                                 <span className="truncate max-w-[65px] font-semibold">{getRemainingTimeText(msg.expiresAt).replace(' left', '')}</span>
                               </span>
                             )}
-                            <button 
-                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
-                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                            <button
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)}
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`}
                               title="Open Preview"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </button>
-                            <button 
-                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'image.jpg')} 
-                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                            <button
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'image.jpg')}
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`}
                               title="Download"
                             >
                               <Download className="h-3.5 w-3.5" />
@@ -908,9 +889,8 @@ export default function ChatDetailPage() {
                       </div>
                     )}
 
-                    {/* Render Video Message */}
                     {msg.type === 'video' && (
-                      <div className="flex flex-col w-64 max-w-full">
+                      <div className="flex flex-col w-60 sm:w-72 max-w-full">
                         <div className="relative rounded-xl overflow-hidden mb-1.5 border border-white/5 bg-black">
                           <video
                             src={msg.text}
@@ -931,16 +911,16 @@ export default function ChatDetailPage() {
                                 <span className="truncate max-w-[65px] font-semibold">{getRemainingTimeText(msg.expiresAt).replace(' left', '')}</span>
                               </span>
                             )}
-                            <button 
-                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
-                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                            <button
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)}
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`}
                               title="Open Preview"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                             </button>
-                            <button 
-                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'video.mp4')} 
-                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`} 
+                            <button
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'video.mp4')}
+                              className={`p-1 ${actionBtnHoverClass} rounded-full transition-colors cursor-pointer ${textSecondaryClass}`}
                               title="Download"
                             >
                               <Download className="h-3.5 w-3.5" />
@@ -950,15 +930,14 @@ export default function ChatDetailPage() {
                       </div>
                     )}
 
-                    {/* Render File/PDF Message */}
                     {msg.type === 'file' && (
-                      <div className="flex flex-col w-64 sm:w-72">
+                      <div className="flex flex-col w-60 sm:w-72">
                         <div className={`flex items-center space-x-3 p-3 rounded-xl ${fileContainerBgClass}`}>
-                          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconBgClass}`}>
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBgClass}`}>
                             {msg.mimeType === 'application/pdf' ? (
-                              <FileText className="h-5.5 w-5.5" />
+                              <FileText className="h-5 w-5" />
                             ) : (
-                              <FileIcon className="h-5.5 w-5.5" />
+                              <FileIcon className="h-5 w-5" />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -970,7 +949,7 @@ export default function ChatDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mt-2.5 px-0.5 text-[10px]">
+                        <div className="flex items-center justify-between mt-2 px-0.5 text-[10px]">
                           {msg.expiresAt && (
                             <span className={`flex items-center space-x-1 ${textMutedClass}`} title={getRemainingTimeText(msg.expiresAt)}>
                               <Clock className="h-3 w-3" />
@@ -978,15 +957,15 @@ export default function ChatDetailPage() {
                             </span>
                           )}
                           <div className="flex items-center space-x-3 ml-auto">
-                            <button 
-                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)} 
+                            <button
+                              onClick={() => router.push(`${window.location.pathname}?mediaId=${msg.messageId}`)}
                               className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
                             >
                               <ExternalLink className="h-3 w-3" />
                               <span>Open</span>
                             </button>
-                            <button 
-                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'download')} 
+                            <button
+                              onClick={() => handleDownloadFile(msg.text, msg.fileName || 'download')}
                               className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
                             >
                               <Download className="h-3 w-3" />
@@ -997,7 +976,6 @@ export default function ChatDetailPage() {
                       </div>
                     )}
 
-                    {/* Render Text Message */}
                     {msg.type === 'text' && (
                       <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
                         {msg.text}
@@ -1007,8 +985,7 @@ export default function ChatDetailPage() {
                 )}
               </div>
 
-              {/* Timestamp Info - Rendered Below the Bubble */}
-              <div className={`flex w-full ${isMe ? 'justify-end pr-1.5' : 'justify-start pl-1.5'} text-[10px] text-text-secondary/65 font-medium`}>
+              <div className={`flex w-full ${isMe ? 'justify-end pr-1.5' : 'justify-start pl-1.5'} text-[9px] text-text-secondary/65 font-medium`}>
                 <span>{formattedTime}</span>
               </div>
             </div>
@@ -1016,20 +993,27 @@ export default function ChatDetailPage() {
         </React.Fragment>
       );
     });
-  }, [messages, activeUploads, user?.uid]);
+  }, [messages, activeUploads, user?.uid, router]);
 
   return (
-    <div className="fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-screen bg-background text-text-primary overflow-hidden select-none">
-
+    <div className="fixed inset-0 flex w-screen h-screen bg-background text-text-primary overflow-hidden select-none">
       {/* Left Panel - Hidden on mobile when viewing a conversation */}
-      <div className="hidden md:block md:w-[400px] shrink-0 h-full relative">
+      <div className="hidden md:block md:w-[400px] shrink-0 h-full relative border-r border-border-primary">
         <LeftPanel />
       </div>
 
       {/* Right Panel - Active Chat Screen */}
-      <div id="chat-right-panel-wrapper" className="flex flex-col flex-1 h-full max-h-full bg-background relative p-0 overflow-hidden [will-change:height,transform]">
-        <div className="flex flex-col flex-1 h-full max-h-full bg-surface border-none overflow-hidden shadow-none">
-
+      {/* On mobile, this wrapper is fixed/absolutely positioned with height & transform synced to visual viewport */}
+      <div
+        id="chat-right-panel-wrapper"
+        style={mobileChatStyle}
+        className="
+          flex flex-col flex-1 bg-background overflow-hidden
+          fixed inset-x-0 bottom-0 md:relative md:inset-auto md:h-full md:transform-none
+          [will-change:height,transform] transition-all duration-75 ease-out
+        "
+      >
+        <div className="flex flex-col w-full h-full bg-surface overflow-hidden relative">
           {/* Error Alert Banner */}
           {errorBanner && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center space-x-3 rounded-xl bg-error/10 border border-error/30 px-5 py-3 text-xs text-error shadow-2xl backdrop-blur-md">
@@ -1042,23 +1026,20 @@ export default function ChatDetailPage() {
           )}
 
           {/* Chat Header */}
-          <div className="flex h-16 items-center justify-between border-b border-border-primary bg-surface px-3 sm:px-4 md:px-6 lg:px-7">
+          <div className="flex h-14 sm:h-16 items-center justify-between border-b border-border-primary bg-surface px-3 sm:px-4 md:px-6 shrink-0 z-10">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-
               {/* Back Button (Mobile only) */}
               <button
                 onClick={() => router.push("/home")}
-                className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background border border-border-primary text-text-secondary hover:text-text-primary hover:bg-surface transition-all duration-200"
+                className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background border border-border-primary text-text-secondary hover:text-text-primary transition-all duration-200 cursor-pointer"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
 
-              {/* Recipient */}
               {recipient && (
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   {/* Avatar */}
-                  <div className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-full overflow-hidden border border-border-primary bg-surface flex items-center justify-center">
+                  <div className="relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full overflow-hidden border border-border-primary bg-surface flex items-center justify-center">
                     {recipient.photoURL ? (
                       <img
                         src={recipient.photoURL}
@@ -1066,7 +1047,7 @@ export default function ChatDetailPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="text-sm font-semibold text-text-secondary">
+                      <span className="text-xs font-semibold text-text-secondary">
                         {recipient.displayName
                           ? recipient.displayName
                             .split(" ")
@@ -1080,67 +1061,65 @@ export default function ChatDetailPage() {
                     )}
 
                     {recipient.status === "online" && (
-                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface bg-success" />
+                      <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-surface bg-success animate-pulse" />
                     )}
                   </div>
 
                   {/* Name + Status */}
                   <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-semibold text-text-primary">
+                    <h4 className="truncate text-xs sm:text-sm font-semibold text-text-primary">
                       {recipient.displayName}
                     </h4>
-
-                    <p className="truncate text-xs text-text-secondary mt-0.5">
-                      {recipient.status === "online"
-                        ? "Online"
-                        : formatLastSeen(recipient.lastSeen)}
+                    <p className="truncate text-[10px] sm:text-xs text-text-secondary mt-0.5">
+                      {recipient.status === "online" ? "Online" : formatLastSeen(recipient.lastSeen)}
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* More Button */}
-            <button
-              className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200"
-            >
+            {/* Actions */}
+            <button className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200">
               <MoreVertical className="h-5 w-5" />
             </button>
           </div>
 
           {/* Message History */}
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-7 md:py-6 lg:px-8 lg:py-7 space-y-4">
-            {loadingMessages ? (
-              <div className="flex flex-col items-center justify-center h-full space-y-3">
-                <RefreshCw className="h-7 w-7 animate-spin text-primary/50" />
-                <span className="text-xs text-text-secondary font-semibold tracking-wider uppercase animate-pulse">
-                  Syncing Conversation
-                </span>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
-                  <Send className="h-5 w-5 rotate-45" />
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-4 bg-background/30 scroll-smooth"
+          >
+            <div ref={contentRef} className="flex flex-col justify-end min-h-full pb-2">
+              {loadingMessages ? (
+                <div className="flex flex-col items-center justify-center my-auto space-y-3">
+                  <RefreshCw className="h-6 w-6 animate-spin text-primary/50" />
+                  <span className="text-[10px] text-text-secondary font-semibold tracking-wider uppercase animate-pulse">
+                    Syncing Messages
+                  </span>
                 </div>
-                <h4 className="text-sm font-bold text-text-secondary">Say Hello!</h4>
-                <p className="text-xs text-text-secondary/70 max-w-xs mt-1">
-                  This is the beginning of your conversation. Send a message to start chatting.
-                </p>
-              </div>
-            ) : (
-              renderedMessages
-            )}
-            <div ref={messagesEndRef} />
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center my-auto text-center px-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
+                    <Send className="h-4 w-4 rotate-45" />
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-text-secondary">Say Hello!</h4>
+                  <p className="text-[11px] text-text-secondary/70 max-w-xs mt-1">
+                    This is the beginning of your conversation. Send a message to start chatting.
+                  </p>
+                </div>
+              ) : (
+                renderedMessages
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
- 
+
           {/* Input Bar Area */}
-          <div className="border-t border-border-primary bg-surface px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 lg:px-7 lg:py-6">
+          <div className="border-t border-border-primary bg-surface px-3 py-3 sm:px-5 sm:py-4 shrink-0 z-10">
             <form
               onSubmit={handleTextSubmit}
               className="flex items-center gap-2 sm:gap-3"
             >
-
-              {/* Attachment Button */}
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1148,6 +1127,7 @@ export default function ChatDetailPage() {
                 className="hidden"
               />
 
+              {/* Attachment Button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -1171,7 +1151,6 @@ export default function ChatDetailPage() {
                   <Smile className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
                 </button>
 
-                {/* Emoji Picker */}
                 {showEmojiPicker && (
                   <EmojiPicker
                     onSelect={handleEmojiClick}
@@ -1180,36 +1159,52 @@ export default function ChatDetailPage() {
                 )}
               </div>
 
-              {/* Message Input */}
-              <input
+              {/* Rich Content Input (contenteditable div) */}
+              <div
                 ref={inputRef}
-                type="text"
-                placeholder={
-                  recipient
+                contentEditable
+                role="textbox"
+                aria-multiline="false"
+                onInput={(e) => setInputText(e.currentTarget.innerText || '')}
+                onPaste={handlePaste}
+                onDrop={handleDrop}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const cleanText = (inputRef.current?.innerText || '').trim();
+                    if (cleanText) {
+                      handleSendMessage(cleanText, 'text');
+                    }
+                  }
+                }}
+                className="
+                  flex-1
+                  min-w-0
+                  max-h-24
+                  overflow-y-auto
+                  rounded-2xl
+                  border border-border-primary
+                  bg-background
+                  px-4 sm:px-5
+                  py-2 sm:py-2.5
+                  text-sm
+                  text-text-primary
+                  outline-none
+                  transition-all
+                  duration-200
+                  hover:border-text-secondary
+                  focus:border-primary
+                  focus:ring-2
+                  focus:ring-primary/20
+                  empty:before:content-[attr(placeholder)]
+                  empty:before:text-text-secondary/50
+                  empty:before:pointer-events-none
+                "
+                {...{
+                  placeholder: recipient
                     ? `Message ${recipient.displayName}...`
                     : "Write a message..."
-                }
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="
-        flex-1
-        min-w-0
-        rounded-full
-        border border-border-primary
-        bg-background
-        px-4 sm:px-5
-        py-2.5
-        text-base md:text-sm
-        text-text-primary
-        placeholder:text-text-secondary/50
-        outline-none
-        transition-all
-        duration-200
-        hover:border-text-secondary
-        focus:border-primary
-        focus:ring-2
-        focus:ring-primary/20
-      "
+                }}
               />
 
               {/* Send Button */}
@@ -1218,31 +1213,31 @@ export default function ChatDetailPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={sending || !inputText.trim()}
                 className="
-        flex
-        h-9 w-9
-        sm:h-10 sm:w-10
-        shrink-0
-        items-center
-        justify-center
-        rounded-full
-        bg-primary
-        text-white
-        shadow-sm
-        transition-all
-        duration-200
-        hover:scale-105
-        active:scale-95
-        disabled:opacity-40
-        disabled:cursor-not-allowed
-      "
+                  flex
+                  h-9 w-9
+                  sm:h-10 sm:w-10
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-primary
+                  text-white
+                  shadow-sm
+                  transition-all
+                  duration-200
+                  hover:scale-105
+                  active:scale-95
+                  disabled:opacity-40
+                  disabled:cursor-not-allowed
+                "
               >
                 <Send className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
               </button>
-
             </form>
           </div>
         </div>
       </div>
+
       {viewedMediaId && (
         <MediaViewer
           mediaId={viewedMediaId}
