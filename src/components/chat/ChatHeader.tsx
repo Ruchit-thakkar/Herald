@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { ChevronLeft, MoreVertical, Phone, Video } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useCall } from '@/context/CallContext';
 
 export interface RecipientProfile {
   uid: string;
@@ -19,6 +21,10 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ recipient, onBack, formatLastSeen }: ChatHeaderProps) {
+  const params = useParams();
+  const conversationId = params?.conversationId as string;
+  const { startCall, callState } = useCall();
+
   return (
     <div className="flex h-14 sm:h-16 items-center justify-between border-b border-border-primary bg-surface px-3 sm:px-4 md:px-6 shrink-0 z-10">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -72,22 +78,31 @@ export default function ChatHeader({ recipient, onBack, formatLastSeen }: ChatHe
         )}
       </div>
 
-      {/* Header Actions (Call icons placeholder + More dropdown menu) */}
+      {/* Header Actions (Call buttons + More dropdown menu) */}
       <div className="flex items-center gap-1 sm:gap-2">
+        {/* Voice Call Button */}
         <button
-          disabled
-          className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary/40 cursor-not-allowed"
-          title="Voice Call (Coming Soon)"
+          onClick={() => {
+            if (recipient && conversationId) {
+              startCall(conversationId, recipient);
+            }
+          }}
+          disabled={!recipient || callState !== 'idle'}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Voice Call"
         >
           <Phone className="h-4.5 w-4.5" />
         </button>
+
+        {/* Video Call Placeholder */}
         <button
           disabled
-          className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary/40 cursor-not-allowed"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary/45 cursor-not-allowed"
           title="Video Call (Coming Soon)"
         >
           <Video className="h-4.5 w-4.5" />
         </button>
+
         <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200">
           <MoreVertical className="h-5 w-5" />
         </button>

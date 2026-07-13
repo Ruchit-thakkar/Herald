@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { CallProvider } from "@/context/CallContext";
+import CallOverlay from "@/components/chat/CallOverlay";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -80,7 +82,10 @@ export default function RootLayout({
       <body className={`${inter.className} h-full max-h-[100dvh] overflow-hidden flex flex-col bg-background text-text-primary`}>
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <CallProvider>
+              {children}
+              <CallOverlay />
+            </CallProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -156,15 +156,14 @@ export async function registerPushNotifications(uid: string) {
       }
 
     } catch (error: any) {
-      console.error('[Push Diagnostics] CRITICAL: FCM Registration failed. Details:', {
+      console.warn('[Push Diagnostics] FCM Registration warning/failed. Details:', {
         name: error?.name,
         message: error?.message,
-        code: error?.code,
-        stack: error?.stack
+        code: error?.code
       });
 
       if (error?.code === 'messaging/token-subscribe-failed' || error?.name === 'InvalidAccessError') {
-        console.error(
+        console.warn(
           '[Push Diagnostics] VAPID Key validation failed (InvalidAccessError / token-subscribe-failed). ' +
           'The VAPID Key in .env.local (NEXT_PUBLIC_FIREBASE_VAPID_KEY) is invalid, malformed, or mismatched. ' +
           'To resolve this: \n' +
@@ -175,7 +174,7 @@ export async function registerPushNotifications(uid: string) {
           '5. Restart the Next.js development server.'
         );
       } else if (error?.name === 'AbortError') {
-        console.error('[Push Diagnostics] Service worker activation or push subscription was aborted by browser.');
+        console.warn('[Push Diagnostics] Service worker activation or push subscription was aborted by browser.');
       }
     }
   })();
