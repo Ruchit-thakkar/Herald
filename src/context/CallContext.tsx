@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { ref, onValue, set, push, remove, get, update, onDisconnect } from 'firebase/database';
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended' | 'rejected' | 'missed' | 'cancelled';
+export type CallType = 'audio' | 'video';
 
 export interface CallUser {
   uid: string;
@@ -15,21 +16,29 @@ export interface CallUser {
 
 interface CallContextType {
   callState: CallState;
+  callType: CallType;
   caller: CallUser | null;
   receiver: CallUser | null;
   conversationId: string | null;
   isMuted: boolean;
   isSpeaker: boolean;
+  isVideoEnabled: boolean;
+  isRemoteVideoEnabled: boolean;
+  cameraFacing: 'user' | 'environment';
   callDuration: number;
   micStatus: 'prompt' | 'granted' | 'denied';
   connectionQuality: 'good' | 'poor' | 'searching';
   callError: string | null;
-  startCall: (convoId: string, recipient: { uid: string; displayName: string; photoURL?: string | null }) => Promise<void>;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+  startCall: (convoId: string, recipient: { uid: string; displayName: string; photoURL?: string | null }, type: CallType) => Promise<void>;
   acceptCall: () => Promise<void>;
   declineCall: () => Promise<void>;
   endCall: () => Promise<void>;
   toggleMute: () => void;
   toggleSpeaker: () => void;
+  toggleCamera: () => void;
+  switchCamera: () => Promise<void>;
   dismissError: () => void;
 }
 
@@ -52,15 +61,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { user, profile } = useAuth();
 
   const [callState, setCallState] = useState<CallState>('idle');
+  const [callType, setCallType] = useState<CallType>('audio');
   const [caller, setCaller] = useState<CallUser | null>(null);
   const [receiver, setReceiver] = useState<CallUser | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isRemoteVideoEnabled, setIsRemoteVideoEnabled] = useState(true);
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
   const [callDuration, setCallDuration] = useState(0);
   const [micStatus, setMicStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'searching'>('searching');
   const [callError, setCallError] = useState<string | null>(null);
+
+  // Video streams
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
   // WebRTC refs
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -103,6 +120,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (callState === 'idle') {
               console.log('[Calling Diagnostics] Incoming call detected from:', incoming.callerId, 'for conversation:', convoId);
               setConversationId(convoId);
+              setCallType(incoming.type || 'audio');
               setCaller({
                 uid: incoming.callerId,
                 displayName: incoming.callerName,
@@ -116,6 +134,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setCallState('ringing');
               isInitiatorRef.current = false;
               setCallError(null);
+              setIsVideoEnabled(true);
+              setIsRemoteVideoEnabled(true);
               console.log('[Calling Diagnostics] Incoming UI displayed. Initiating ringtone.');
               startRingtone();
               
@@ -168,6 +188,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = snap.val();
       const status = data.status as CallState;
       console.log('[Calling Diagnostics] Call session status updated in DB:', status);
+
+      // Track camera toggle states
+      if (isInitiatorRef.current) {
+        setIsRemoteVideoEnabled(data.receiverVideoEnabled !== false);
+      } else {
+        setIsRemoteVideoEnabled(data.callerVideoEnabled !== false);
+      }
 
       if (status === 'connected' && (callState === 'calling' || callState === 'ringing')) {
         console.log('[Calling Diagnostics] Transitioning to connected state.');
@@ -255,8 +282,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // WebRTC Setup Helper
-  const setupPeerConnection = async (convoId: string) => {
-    console.log('[Calling Diagnostics] Setting up RTCPeerConnection for:', convoId);
+  const setupPeerConnection = async (convoId: string, type: CallType) => {
+    console.log('[Calling Diagnostics] Setting up RTCPeerConnection for:', convoId, 'type:', type);
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
 
@@ -276,7 +303,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     pc.ontrack = (event) => {
-      console.log('[Calling Diagnostics] Received remote audio stream track.');
+      console.log('[Calling Diagnostics] Received remote track. Stream tracks count:', event.streams[0]?.getTracks().length);
+      setRemoteStream(event.streams[0]);
+
       if (!remoteAudioRef.current) {
         const audio = new Audio();
         audio.autoplay = true;
@@ -285,17 +314,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remoteAudioRef.current.srcObject = event.streams[0];
     };
 
-    // Capture Local Audio Stream
+    // Capture Local Audio & Video Stream
     try {
-      console.log('[Calling Diagnostics] Requesting local microphone permission.');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      console.log('[Calling Diagnostics] Requesting local media devices.');
+      const constraints = {
+        audio: true,
+        video: type === 'video' ? { facingMode: cameraFacing } : false
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
+      setLocalStream(stream);
       setMicStatus('granted');
+      
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
-      console.log('[Calling Diagnostics] Microphone stream captured and added to tracks.');
+      console.log('[Calling Diagnostics] Media tracks captured and added to WebRTC peer connection.');
     } catch (err) {
       setMicStatus('denied');
-      console.warn('[Calling Diagnostics] Microphone access denied or busy:', err);
+      console.warn('[Calling Diagnostics] Media device access denied or busy:', err);
       return null;
     }
 
@@ -327,8 +363,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return pc;
   };
 
-  // Start Voice Call
-  const startCall = async (convoId: string, recipient: { uid: string; displayName: string; photoURL?: string | null }) => {
+  // Start Call (Audio or Video)
+  const startCall = async (convoId: string, recipient: { uid: string; displayName: string; photoURL?: string | null }, type: CallType) => {
     if (!recipient || !recipient.uid) {
       console.error('[Calling Diagnostics] CRITICAL: Cannot start call. Recipient user ID is missing!', recipient);
       setCallError('Calling failed: Recipient details not resolved.');
@@ -340,8 +376,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    console.log('[Calling Diagnostics] Initiating call to:', recipient.uid, 'in conversation:', convoId);
+    console.log('[Calling Diagnostics] Initiating call to:', recipient.uid, 'type:', type, 'in conversation:', convoId);
     setConversationId(convoId);
+    setCallType(type);
     setReceiver({
       uid: recipient.uid,
       displayName: recipient.displayName,
@@ -355,6 +392,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCallState('calling');
     isInitiatorRef.current = true;
     setCallError(null);
+    setIsVideoEnabled(true);
+    setIsRemoteVideoEnabled(true);
     startRingtone();
 
     const callRef = ref(db, `conversations/${convoId}/activeCall`);
@@ -371,6 +410,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callerId: user.uid,
         receiverId: recipient.uid,
         status: 'calling',
+        type,
+        callerVideoEnabled: type === 'video',
+        receiverVideoEnabled: true,
         timestamp: Date.now()
       });
       console.log('[Calling Diagnostics] Call session metadata successfully written.');
@@ -390,6 +432,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callerName: profile?.displayName || 'Herald User',
         callerPhoto: profile?.photoURL || '',
         status: 'calling',
+        type,
         timestamp: Date.now()
       });
       console.log('[Calling Diagnostics] Receiver call alert successfully written.');
@@ -403,9 +446,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Create RTCPeerConnection & SDP Offer
     try {
-      const pc = await setupPeerConnection(convoId);
+      const pc = await setupPeerConnection(convoId, type);
       if (!pc) {
-        setCallError('Microphone permission denied or device busy. Please enable microphone access in your browser settings.');
+        setCallError('Media capture permission denied or device busy. Please enable access in your settings.');
         setCallState('ended');
         await remove(incomingRef).catch(() => {});
         await remove(callRef).catch(() => {});
@@ -458,9 +501,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     onDisconnect(callRef).remove();
 
     try {
-      const pc = await setupPeerConnection(conversationId);
+      const pc = await setupPeerConnection(conversationId, callType);
       if (!pc) {
-        setCallError('Microphone permission denied or device busy. Please enable microphone access in your browser settings.');
+        setCallError('Media capture permission denied or device busy. Please enable access in your settings.');
         setCallState('ended');
         await remove(ref(db, `userConversations/${user?.uid}/${conversationId}/incomingCall`)).catch(() => {});
         cleanupCall('ended');
@@ -484,7 +527,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           type: answer.type
         });
         await update(callRef, {
-          status: 'connected'
+          status: 'connected',
+          receiverVideoEnabled: callType === 'video'
         });
         
         // Remove incoming alert node
@@ -589,6 +633,73 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('[Calling Diagnostics] Speaker routing toggled. Speaker:', !isSpeaker);
   };
 
+  const toggleCamera = () => {
+    if (localStreamRef.current && callType === 'video') {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+        console.log('[Calling Diagnostics] Camera track toggled. Enabled:', videoTrack.enabled);
+
+        // Sync with DB
+        const field = isInitiatorRef.current ? 'callerVideoEnabled' : 'receiverVideoEnabled';
+        if (conversationId) {
+          update(ref(db, `conversations/${conversationId}/activeCall`), {
+            [field]: videoTrack.enabled
+          }).catch(e => console.error('[Calling Diagnostics] Camera toggle sync failed:', e));
+        }
+      }
+    }
+  };
+
+  const switchCamera = async () => {
+    if (callType !== 'video' || !localStreamRef.current || !peerConnectionRef.current) return;
+    const newFacing = cameraFacing === 'user' ? 'environment' : 'user';
+    setCameraFacing(newFacing);
+    console.log('[Calling Diagnostics] Switching camera facing to:', newFacing);
+
+    try {
+      // 1. Stop current local video tracks
+      localStreamRef.current.getVideoTracks().forEach(track => track.stop());
+
+      // 2. Request new video track with the updated facing constraint
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: false, // Keep audio exactly the same
+        video: { facingMode: newFacing }
+      });
+
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (newVideoTrack) {
+        // 3. Replace WebRTC sender track
+        const senders = peerConnectionRef.current.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          await videoSender.replaceTrack(newVideoTrack);
+          console.log('[Calling Diagnostics] WebRTC sender track successfully replaced.');
+        }
+
+        // 4. Update tracks inside our stream object
+        localStreamRef.current.getVideoTracks().forEach(t => localStreamRef.current?.removeTrack(t));
+        localStreamRef.current.addTrack(newVideoTrack);
+        
+        // Update states to force re-render UI elements
+        const updatedStream = new MediaStream(localStreamRef.current.getTracks());
+        setLocalStream(updatedStream);
+        setIsVideoEnabled(true);
+
+        // Sync state to DB
+        const field = isInitiatorRef.current ? 'callerVideoEnabled' : 'receiverVideoEnabled';
+        if (conversationId) {
+          update(ref(db, `conversations/${conversationId}/activeCall`), {
+            [field]: true
+          }).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('[Calling Diagnostics] Camera switch failed:', err);
+    }
+  };
+
   const dismissError = () => {
     console.log('[Calling Diagnostics] Error dismissed by user. Returning to idle.');
     setCallError(null);
@@ -608,11 +719,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (callTimerIntervalRef.current) clearInterval(callTimerIntervalRef.current);
     if (rejectionTimeoutRef.current) clearTimeout(rejectionTimeoutRef.current);
 
-    // Stop all media tracks
+    // Stop all media tracks immediately
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
+    setLocalStream(null);
+    setRemoteStream(null);
+
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
       remoteAudioRef.current = null;
@@ -640,6 +754,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         remove(ref(db, `conversations/${conversationId}/activeCall`)).catch(() => {});
       }
     }
+
+    setCameraFacing('user');
+    setIsVideoEnabled(true);
+    setIsRemoteVideoEnabled(true);
 
     if (finalState !== 'ended' && finalState !== 'rejected') {
       setCallState('idle');
@@ -672,21 +790,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <CallContext.Provider
       value={{
         callState,
+        callType,
         caller,
         receiver,
         conversationId,
         isMuted,
         isSpeaker,
-        micStatus,
+        isVideoEnabled,
+        isRemoteVideoEnabled,
+        cameraFacing,
         callDuration,
+        micStatus,
         connectionQuality,
         callError,
+        localStream,
+        remoteStream,
         startCall,
         acceptCall,
         declineCall,
         endCall,
         toggleMute,
         toggleSpeaker,
+        toggleCamera,
+        switchCamera,
         dismissError
       }}
     >

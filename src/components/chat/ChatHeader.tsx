@@ -84,7 +84,7 @@ export default function ChatHeader({ recipient, onBack, formatLastSeen }: ChatHe
         <button
           onClick={() => {
             if (recipient && conversationId) {
-              startCall(conversationId, recipient);
+              startCall(conversationId, recipient, 'audio');
             }
           }}
           disabled={!recipient || callState !== 'idle'}
@@ -94,11 +94,16 @@ export default function ChatHeader({ recipient, onBack, formatLastSeen }: ChatHe
           <Phone className="h-4.5 w-4.5" />
         </button>
 
-        {/* Video Call Placeholder */}
+        {/* Video Call Button */}
         <button
-          disabled
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary/45 cursor-not-allowed"
-          title="Video Call (Coming Soon)"
+          onClick={() => {
+            if (recipient && conversationId) {
+              startCall(conversationId, recipient, 'video');
+            }
+          }}
+          disabled={!recipient || callState !== 'idle'}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary hover:text-text-primary hover:bg-background transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Video Call"
         >
           <Video className="h-4.5 w-4.5" />
         </button>
