@@ -307,15 +307,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     pc.ontrack = (event) => {
-      console.log('[Calling Diagnostics] Received remote track. Stream tracks count:', event.streams[0]?.getTracks().length);
-      setRemoteStream(event.streams[0]);
+      console.log('[Calling Diagnostics] Received remote track:', event.track.kind);
+      
+      let stream = event.streams[0];
+      if (!stream) {
+        console.log('[Calling Diagnostics] streams[0] is empty, creating MediaStream dynamically.');
+        stream = new MediaStream();
+        stream.addTrack(event.track);
+      }
+      
+      setRemoteStream(prev => {
+        if (prev) {
+          if (prev.getTracks().find(t => t.id === event.track.id)) {
+            return prev;
+          }
+          prev.addTrack(event.track);
+          console.log('[Calling Diagnostics] Appended remote track. Total tracks:', prev.getTracks().length);
+          return new MediaStream(prev.getTracks());
+        }
+        console.log('[Calling Diagnostics] Created new remote stream. Total tracks:', stream.getTracks().length);
+        return stream;
+      });
 
       if (!remoteAudioRef.current) {
         const audio = new Audio();
         audio.autoplay = true;
         remoteAudioRef.current = audio;
       }
-      remoteAudioRef.current.srcObject = event.streams[0];
+      if (event.track.kind === 'audio') {
+        remoteAudioRef.current.srcObject = event.streams[0] || stream;
+      }
     };
 
     // Capture Local Audio & Video Stream
