@@ -663,6 +663,7 @@ export default function ChatDetailPage() {
             getRemainingTimeText={getRemainingTimeText}
             onLoadOlderMessages={loadOlderMessages}
             hasMoreOlder={hasMore}
+            loadingOlder={loadingOlder}
           />
 
           {/* Chat Composer Component */}

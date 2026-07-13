@@ -35,6 +35,7 @@ interface ChatMessagesProps {
   getRemainingTimeText: (expiresAt?: number) => string;
   onLoadOlderMessages?: () => Promise<void>;
   hasMoreOlder?: boolean;
+  loadingOlder?: boolean;
 }
 
 export default function ChatMessages({
@@ -50,6 +51,7 @@ export default function ChatMessages({
   getRemainingTimeText,
   onLoadOlderMessages,
   hasMoreOlder = true,
+  loadingOlder = false,
 }: ChatMessagesProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -148,8 +150,8 @@ export default function ChatMessages({
       setShowNewIndicator(false);
     }
 
-    // Scroll to the very top triggers paginated load
-    if (container.scrollTop === 0 && hasMoreOlder && onLoadOlderMessages) {
+    // Scroll near the top (<= 50px) triggers paginated load, locked by loadingOlder
+    if (container.scrollTop <= 50 && hasMoreOlder && !loadingOlder && onLoadOlderMessages) {
       prevScrollHeightRef.current = container.scrollHeight;
       prevScrollTopRef.current = container.scrollTop;
       onLoadOlderMessages();
