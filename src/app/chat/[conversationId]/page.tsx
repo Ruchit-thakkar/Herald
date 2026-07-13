@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
@@ -11,49 +11,6 @@ import ChatHeader, { RecipientProfile } from '@/components/chat/ChatHeader';
 import ChatMessages, { Message } from '@/components/chat/ChatMessages';
 import ChatComposer from '@/components/chat/ChatComposer';
 import { ShieldAlert, X } from 'lucide-react';
-
-interface ViewportDimensions {
-  width: number;
-  height: number;
-  offsetTop: number;
-  scale: number;
-}
-
-// Hook to track the mobile visual viewport size and offset
-function useVisualViewport() {
-  const [viewport, setViewport] = useState<ViewportDimensions>({
-    width: typeof window !== 'undefined' ? window.innerWidth : 0,
-    height: typeof window !== 'undefined' ? window.innerHeight : 0,
-    offsetTop: 0,
-    scale: 1,
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-
-    const visualViewport = window.visualViewport;
-
-    const handleViewportChange = () => {
-      setViewport({
-        width: visualViewport.width,
-        height: visualViewport.height,
-        offsetTop: visualViewport.offsetTop,
-        scale: visualViewport.scale,
-      });
-    };
-
-    visualViewport.addEventListener('resize', handleViewportChange);
-    visualViewport.addEventListener('scroll', handleViewportChange);
-    handleViewportChange();
-
-    return () => {
-      visualViewport.removeEventListener('resize', handleViewportChange);
-      visualViewport.removeEventListener('scroll', handleViewportChange);
-    };
-  }, []);
-
-  return viewport;
-}
 
 export default function ChatDetailPage() {
   const params = useParams();
@@ -74,7 +31,49 @@ export default function ChatDetailPage() {
   const [conversation, setConversation] = useState<any>(null);
 
   const xhrRefs = useRef<{ [tempId: string]: XMLHttpRequest }>({});
-  const viewport = useVisualViewport();
+
+  // Sync layout dimensions to Visual Viewport directly to bypass React render lags.
+  // Using direct DOM manipulation prevents asynchronous React rendering cycles,
+  // ensuring the Chat Composer stays pinned to the keyboard with 0ms delay.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const visualViewport = window.visualViewport;
+
+    const handler = () => {
+      const wrapper = document.getElementById('chat-right-panel-wrapper');
+      if (wrapper) {
+        const isMobile = window.innerWidth < 768; // Tailwind md breakpoint is 768px
+        if (isMobile) {
+          wrapper.style.position = 'absolute';
+          wrapper.style.top = `${visualViewport.offsetTop}px`;
+          wrapper.style.left = `${visualViewport.offsetLeft}px`;
+          wrapper.style.width = `${visualViewport.width}px`;
+          wrapper.style.height = `${visualViewport.height}px`;
+        } else {
+          // Reset styling for desktop layouts so they use normal CSS flow
+          wrapper.style.position = '';
+          wrapper.style.top = '';
+          wrapper.style.left = '';
+          wrapper.style.width = '';
+          wrapper.style.height = '';
+        }
+      }
+    };
+
+    visualViewport.addEventListener('resize', handler);
+    visualViewport.addEventListener('scroll', handler);
+    window.addEventListener('resize', handler);
+
+    // Run initial alignment
+    handler();
+
+    return () => {
+      visualViewport.removeEventListener('resize', handler);
+      visualViewport.removeEventListener('scroll', handler);
+      window.removeEventListener('resize', handler);
+    };
+  }, []);
 
   // Prevent scroll of document body when mobile virtual keyboard triggers viewport offset
   useEffect(() => {
@@ -546,15 +545,6 @@ export default function ChatDetailPage() {
     return `${minutes}m left`;
   };
 
-  // Mobile layout styles based on visual viewport to prevent jumping/lag
-  const mobileChatStyle = useMemo(() => {
-    if (typeof window === 'undefined') return {};
-    return {
-      height: `${viewport.height}px`,
-      transform: `translateY(${viewport.offsetTop}px)`,
-    };
-  }, [viewport.height, viewport.offsetTop]);
-
   return (
     <div className="fixed inset-0 flex w-screen h-screen bg-background text-text-primary overflow-hidden select-none">
       {/* Left Panel - Hidden on mobile when viewing a conversation */}
@@ -565,11 +555,10 @@ export default function ChatDetailPage() {
       {/* Right Panel - Active Chat Screen */}
       <div
         id="chat-right-panel-wrapper"
-        style={mobileChatStyle}
         className="
           flex flex-col flex-1 bg-background overflow-hidden
           fixed inset-x-0 bottom-0 md:relative md:inset-auto md:h-full md:transform-none
-          [will-change:height,transform] transition-all duration-75 ease-out
+          [will-change:top,height,width,left]
         "
       >
         <div className="flex flex-col w-full h-full bg-surface overflow-hidden relative">
