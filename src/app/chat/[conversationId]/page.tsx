@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
 import MediaViewer from '@/components/MediaViewer';
-import { ref, onValue, push, update, get, set, remove, query, orderByChild, limitToLast, endBefore } from 'firebase/database';
+import { ref, onValue, push, update, get, set, remove, query, orderByKey, limitToLast, endBefore } from 'firebase/database';
 import LeftPanel from '@/components/LeftPanel';
 import ChatHeader, { RecipientProfile } from '@/components/chat/ChatHeader';
 import ChatMessages, { Message } from '@/components/chat/ChatMessages';
@@ -174,7 +174,7 @@ export default function ChatDetailPage() {
 
     const latestQuery = query(
       ref(db, `messages/${conversationId}`),
-      orderByChild('timestamp'),
+      orderByKey(),
       limitToLast(15)
     );
 
@@ -218,12 +218,12 @@ export default function ChatDetailPage() {
     setLoadingOlder(true);
 
     const oldestMsg = messages[0];
-    const oldestTimestamp = oldestMsg.timestamp;
+    const oldestMessageId = oldestMsg.messageId;
 
     const olderQuery = query(
       ref(db, `messages/${conversationId}`),
-      orderByChild('timestamp'),
-      endBefore(oldestTimestamp),
+      orderByKey(),
+      endBefore(oldestMessageId),
       limitToLast(15)
     );
 

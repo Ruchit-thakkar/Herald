@@ -118,8 +118,20 @@ export default function ChatMessages({
         setShowNewIndicator(true);
       }
     }
-    prevMessagesLength.current = messages.length;
   }, [messages, currentUserId]);
+
+  // Snaps to absolute bottom on initial load once loading becomes false and messages are available
+  useEffect(() => {
+    if (!loading && messages.length > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+          }
+        });
+      });
+    }
+  }, [loading, messages.length]);
 
   // Preserve scroll position exactly during dynamic message insertion at the top
   useLayoutEffect(() => {
@@ -429,7 +441,7 @@ export default function ChatMessages({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-grow overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-4 scroll-smooth min-h-0"
+        className="flex-grow overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-4 min-h-0"
       >
         <div ref={contentRef} className="flex flex-col justify-end min-h-full pb-2">
           {loading ? (
