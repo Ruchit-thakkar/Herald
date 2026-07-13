@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useLayoutEffect, useMemo, useState } from 'react';
 import {
-  RefreshCw, X, AlertCircle, Clock, ExternalLink, Download, FileText, File as FileIcon, Send
+  RefreshCw, X, AlertCircle, Clock, ExternalLink, Download, FileText, File as FileIcon, Send, ChevronDown
 } from 'lucide-react';
 
 export interface Message {
@@ -33,6 +33,8 @@ interface ChatMessagesProps {
   formatFileSize: (bytes?: number) => string;
   handleDownloadFile: (url: string, fileName: string) => Promise<void>;
   getRemainingTimeText: (expiresAt?: number) => string;
+  onLoadOlderMessages?: () => Promise<void>;
+  hasMoreOlder?: boolean;
 }
 
 export default function ChatMessages({
@@ -46,12 +48,23 @@ export default function ChatMessages({
   formatFileSize,
   handleDownloadFile,
   getRemainingTimeText,
+  onLoadOlderMessages,
+  hasMoreOlder = true,
 }: ChatMessagesProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Set up ResizeObserver to handle auto-scrolling on media loading/incoming messages
+  // Pagination scroll position preservation refs
+  const prevScrollHeightRef = useRef<number>(0);
+  const prevScrollTopRef = useRef<number>(0);
+
+  // New incoming messages tracking states
+  const [showNewIndicator, setShowNewIndicator] = useState(false);
+  const prevMessagesLength = useRef<number>(messages.length);
+  const isNearBottomRef = useRef<boolean>(true);
+
+  // Set up ResizeObserver to automatically anchor scroll to bottom on initial load / upload changes
   useEffect(() => {
     const container = scrollContainerRef.current;
     const content = contentRef.current;
@@ -66,6 +79,7 @@ export default function ChatMessages({
         return;
       }
 
+      // Check if user is scrolled near the bottom before dimensions resize (e.g. image completes load)
       const threshold = 200;
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
 
@@ -79,6 +93,68 @@ export default function ChatMessages({
     observer.observe(content);
     return () => observer.disconnect();
   }, [loading]);
+
+  // Handle incoming new messages: scroll to bottom if user is already near bottom,
+  // otherwise show the "New Messages" banner indicator overlay
+  useEffect(() => {
+    if (messages.length === 0) {
+      prevMessagesLength.current = 0;
+      return;
+    }
+
+    if (messages.length > prevMessagesLength.current) {
+      const lastMessage = messages[messages.length - 1];
+      const isMe = lastMessage?.senderId === currentUserId;
+
+      if (isMe || isNearBottomRef.current) {
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+          }
+        });
+      } else {
+        setShowNewIndicator(true);
+      }
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, currentUserId]);
+
+  // Preserve scroll position exactly during dynamic message insertion at the top
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (prevScrollHeightRef.current > 0) {
+      const scrollDiff = container.scrollHeight - prevScrollHeightRef.current;
+      if (scrollDiff > 0) {
+        container.scrollTop = prevScrollTopRef.current + scrollDiff;
+      }
+      prevScrollHeightRef.current = 0;
+      prevScrollTopRef.current = 0;
+    }
+  }, [messages]);
+
+  // Handle scroll trigger: check if user scrolls to top (trigger infinite loading)
+  // or scrolls to bottom (dismiss new message banner)
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const threshold = 200;
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+    isNearBottomRef.current = nearBottom;
+
+    if (nearBottom && showNewIndicator) {
+      setShowNewIndicator(false);
+    }
+
+    // Scroll to the very top triggers paginated load
+    if (container.scrollTop === 0 && hasMoreOlder && onLoadOlderMessages) {
+      prevScrollHeightRef.current = container.scrollHeight;
+      prevScrollTopRef.current = container.scrollTop;
+      onLoadOlderMessages();
+    }
+  };
 
   const renderedMessages = useMemo(() => {
     let lastDateStr = '';
@@ -312,7 +388,7 @@ export default function ChatMessages({
                               onClick={() => onViewMedia(msg.messageId)}
                               className={`flex items-center space-x-1 font-semibold hover:underline cursor-pointer ${textSecondaryClass}`}
                             >
-                              <ExternalLink className="h-3 w-3" />
+                              <ExternalLink className="h-3.5 w-3.5" />
                               <span>Open</span>
                             </button>
                             <button
@@ -347,33 +423,52 @@ export default function ChatMessages({
   }, [messages, activeUploads, currentUserId, formatFileSize, getRemainingTimeText, handleDownloadFile, onViewMedia, onCancelUpload, onRetryUpload]);
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-4 bg-background/30 scroll-smooth min-h-0"
-    >
-      <div ref={contentRef} className="flex flex-col justify-end min-h-full pb-2">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center my-auto space-y-3">
-            <RefreshCw className="h-6 w-6 animate-spin text-primary/50" />
-            <span className="text-[10px] text-text-secondary font-semibold tracking-wider uppercase animate-pulse">
-              Syncing Messages
-            </span>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center my-auto text-center px-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
-              <Send className="h-4 w-4 rotate-45" />
+    <div className="flex-grow flex-shrink flex basis-auto min-h-0 relative flex-col bg-background/30">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-grow overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 space-y-4 scroll-smooth min-h-0"
+      >
+        <div ref={contentRef} className="flex flex-col justify-end min-h-full pb-2">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center my-auto space-y-3">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary/50" />
+              <span className="text-[10px] text-text-secondary font-semibold tracking-wider uppercase animate-pulse">
+                Syncing Messages
+              </span>
             </div>
-            <h4 className="text-xs sm:text-sm font-bold text-text-secondary">Say Hello!</h4>
-            <p className="text-[11px] text-text-secondary/70 max-w-xs mt-1">
-              This is the beginning of your conversation. Send a message to start chatting.
-            </p>
-          </div>
-        ) : (
-          renderedMessages
-        )}
-        <div ref={messagesEndRef} />
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center my-auto text-center px-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface border border-border-primary text-text-secondary mb-3">
+                <Send className="h-4 w-4 rotate-45" />
+              </div>
+              <h4 className="text-xs sm:text-sm font-bold text-text-secondary">Say Hello!</h4>
+              <p className="text-[11px] text-text-secondary/70 max-w-xs mt-1">
+                This is the beginning of your conversation. Send a message to start chatting.
+              </p>
+            </div>
+          ) : (
+            renderedMessages
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
+
+      {/* Floating "New Messages" indicator overlay */}
+      {showNewIndicator && (
+        <button
+          onClick={() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+            }
+            setShowNewIndicator(false);
+          }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-2 rounded-full bg-primary hover:bg-primary-hover px-4 py-2 text-xs font-semibold text-white shadow-lg animate-bounce transition-all duration-200 cursor-pointer"
+        >
+          <ChevronDown className="h-4 w-4" />
+          <span>New Messages</span>
+        </button>
+      )}
     </div>
   );
 }

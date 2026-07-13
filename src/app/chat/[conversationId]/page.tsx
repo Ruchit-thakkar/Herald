@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
 import MediaViewer from '@/components/MediaViewer';
-import { ref, onValue, push, update, get, set, remove } from 'firebase/database';
+import { ref, onValue, push, update, get, set, remove, query, orderByChild, limitToLast, endBefore } from 'firebase/database';
 import LeftPanel from '@/components/LeftPanel';
 import ChatHeader, { RecipientProfile } from '@/components/chat/ChatHeader';
 import ChatMessages, { Message } from '@/components/chat/ChatMessages';
@@ -30,11 +30,13 @@ export default function ChatDetailPage() {
   const [errorBanner, setErrorBanner] = useState('');
   const [conversation, setConversation] = useState<any>(null);
 
+  // Pagination states
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   const xhrRefs = useRef<{ [tempId: string]: XMLHttpRequest }>({});
 
-  // Sync layout dimensions to Visual Viewport directly to bypass React render lags.
-  // Using direct DOM manipulation prevents asynchronous React rendering cycles,
-  // ensuring the Chat Composer stays pinned to the keyboard with 0ms delay.
+  // Sync layout dimensions to Visual Viewport directly to bypass React render lags
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
 
@@ -163,22 +165,40 @@ export default function ChatDetailPage() {
     });
   }, [user, conversationId, router]);
 
-  // Fetch Messages in real-time
+  // Fetch Messages in real-time with cursor limitation
   useEffect(() => {
     if (!conversationId) return;
+    setMessages([]); // Clear previous messages
     setLoadingMessages(true);
+    setHasMore(true);
 
-    const messagesRef = ref(db, `messages/${conversationId}`);
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
+    const latestQuery = query(
+      ref(db, `messages/${conversationId}`),
+      orderByChild('timestamp'),
+      limitToLast(15)
+    );
+
+    const unsubscribe = onValue(latestQuery, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const list = Object.keys(data).map((key) => ({
+        const latestList = Object.keys(data).map((key) => ({
           messageId: key,
           ...data[key]
         })) as Message[];
+        latestList.sort((a, b) => a.timestamp - b.timestamp);
 
-        list.sort((a, b) => a.timestamp - b.timestamp);
-        setMessages(list);
+        setMessages(prev => {
+          const merged = [...prev];
+          latestList.forEach(msg => {
+            const idx = merged.findIndex(m => m.messageId === msg.messageId);
+            if (idx > -1) {
+              merged[idx] = msg; // Update state
+            } else {
+              merged.push(msg); // Add new incoming
+            }
+          });
+          return merged.sort((a, b) => a.timestamp - b.timestamp);
+        });
       } else {
         setMessages([]);
       }
@@ -191,6 +211,55 @@ export default function ChatDetailPage() {
 
     return () => unsubscribe();
   }, [conversationId]);
+
+  // Load older messages (cursor-based endBefore pagination)
+  const loadOlderMessages = async () => {
+    if (loadingOlder || !hasMore || !conversationId || messages.length === 0) return;
+    setLoadingOlder(true);
+
+    const oldestMsg = messages[0];
+    const oldestTimestamp = oldestMsg.timestamp;
+
+    const olderQuery = query(
+      ref(db, `messages/${conversationId}`),
+      orderByChild('timestamp'),
+      endBefore(oldestTimestamp),
+      limitToLast(15)
+    );
+
+    try {
+      const snapshot = await get(olderQuery);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const olderList = Object.keys(data).map((key) => ({
+          messageId: key,
+          ...data[key]
+        })) as Message[];
+        olderList.sort((a, b) => a.timestamp - b.timestamp);
+
+        if (olderList.length < 15) {
+          setHasMore(false);
+        }
+
+        setMessages(prev => {
+          const merged = [...prev];
+          olderList.forEach(msg => {
+            const idx = merged.findIndex(m => m.messageId === msg.messageId);
+            if (idx === -1) {
+              merged.push(msg);
+            }
+          });
+          return merged.sort((a, b) => a.timestamp - b.timestamp);
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.error('Error loading older messages:', e);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const triggerError = (msg: string) => {
     setErrorBanner(msg);
@@ -580,7 +649,7 @@ export default function ChatDetailPage() {
             formatLastSeen={formatLastSeen}
           />
 
-          {/* Chat Messages Component */}
+          {/* Chat Messages Component with Infinite scroll support */}
           <ChatMessages
             messages={messages}
             activeUploads={activeUploads}
@@ -592,6 +661,8 @@ export default function ChatDetailPage() {
             formatFileSize={formatFileSize}
             handleDownloadFile={handleDownloadFile}
             getRemainingTimeText={getRemainingTimeText}
+            onLoadOlderMessages={loadOlderMessages}
+            hasMoreOlder={hasMore}
           />
 
           {/* Chat Composer Component */}
