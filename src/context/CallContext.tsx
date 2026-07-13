@@ -94,6 +94,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isInitiatorRef = useRef(false);
   const rejectionTimeoutRef = useRef<number | null>(null);
 
+  // Unsubscribe refs for signaling listeners
+  const candidatesUnsubscribeRef = useRef<(() => void) | null>(null);
+  const answerUnsubscribeRef = useRef<(() => void) | null>(null);
+
   // Global listener for incoming calls inside userConversations
   useEffect(() => {
     if (!user?.uid) {
@@ -352,9 +356,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Listen to remote candidates
-    onValue(ref(db, `conversations/${convoId}/activeCall/${remoteCandidatesPath}`), (snap) => {
+    if (candidatesUnsubscribeRef.current) {
+      candidatesUnsubscribeRef.current();
+      candidatesUnsubscribeRef.current = null;
+    }
+    candidatesUnsubscribeRef.current = onValue(ref(db, `conversations/${convoId}/activeCall/${remoteCandidatesPath}`), (snap) => {
       if (!snap.exists()) return;
+      if (pc.signalingState === 'closed') return;
       snap.forEach((child) => {
+        if (pc.signalingState === 'closed') return;
         const candidate = new RTCIceCandidate(child.val());
         pc.addIceCandidate(candidate).catch(e => console.warn('Error adding ICE Candidate:', e));
       });
@@ -465,11 +475,20 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Listen for SDP Answer
-      onValue(ref(db, `conversations/${convoId}/activeCall/answer`), async (snap) => {
+      if (answerUnsubscribeRef.current) {
+        answerUnsubscribeRef.current();
+        answerUnsubscribeRef.current = null;
+      }
+      answerUnsubscribeRef.current = onValue(ref(db, `conversations/${convoId}/activeCall/answer`), async (snap) => {
         if (!snap.exists()) return;
+        if (pc.signalingState === 'closed') return;
         const answer = new RTCSessionDescription(snap.val());
         console.log('[Calling Diagnostics] Received SDP Answer from receiver. Setting remote description.');
-        await pc.setRemoteDescription(answer);
+        try {
+          await pc.setRemoteDescription(answer);
+        } catch (err) {
+          console.warn('[Calling Diagnostics] setRemoteDescription failed:', err);
+        }
       });
     } catch (err) {
       console.warn('Failed to initiate calling stream:', err);
@@ -718,6 +737,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
     if (callTimerIntervalRef.current) clearInterval(callTimerIntervalRef.current);
     if (rejectionTimeoutRef.current) clearTimeout(rejectionTimeoutRef.current);
+
+    // Unsubscribe from active calling signaling listeners
+    if (candidatesUnsubscribeRef.current) {
+      candidatesUnsubscribeRef.current();
+      candidatesUnsubscribeRef.current = null;
+    }
+    if (answerUnsubscribeRef.current) {
+      answerUnsubscribeRef.current();
+      answerUnsubscribeRef.current = null;
+    }
 
     // Stop all media tracks immediately
     if (localStreamRef.current) {
